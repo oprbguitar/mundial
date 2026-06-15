@@ -1,6 +1,7 @@
 export type Language = 'es' | 'en'
 export type Host = 'all' | 'Mexico' | 'USA' | 'Canada'
 export type Status = 'scheduled' | 'live' | 'finished'
+export type Matchday = 'first' | 'second' | 'third' | 'knockout'
 
 export interface Match {
   id: string
@@ -76,6 +77,66 @@ export const matches: Match[] = [
   m('l1','L',17,'15:00','England','🏴','Croatia','🇭🇷','USA','Gillette Stadium','Foxborough',null),
   m('l2','L',17,'18:00','Ghana','🇬🇭','Panama','🇵🇦','USA','Gillette Stadium','Foxborough',null),
 ]
+
+const fixture = (id: string, group: string, dateTime: string, home: string, away: string, city: string): Match => ({
+  id, group, dateTime, home, away, homeFlag:'', awayFlag:'', host:'USA', stadium:'', city, score:null, status:'scheduled',
+})
+
+export const secondMatchday: Match[] = [
+  fixture('s1','A','2026-06-18T12:00:00-04:00','Czechia','SouthAfrica','Atlanta'),
+  fixture('s2','A','2026-06-18T19:00:00-06:00','Mexico','SouthKorea','Guadalajara (Zapopan)'),
+  fixture('s3','B','2026-06-18T12:00:00-07:00','Switzerland','Bosnia','Los Angeles (Inglewood)'),
+  fixture('s4','B','2026-06-18T15:00:00-07:00','Canada','Qatar','Vancouver'),
+  fixture('s5','C','2026-06-19T18:00:00-04:00','Scotland','Morocco','Boston (Foxborough)'),
+  fixture('s6','C','2026-06-19T20:30:00-04:00','Brazil','Haiti','Philadelphia'),
+  fixture('s7','D','2026-06-19T12:00:00-07:00','USA','Australia','Seattle'),
+  fixture('s8','D','2026-06-19T20:00:00-07:00','Turkey','Paraguay','San Francisco Bay Area (Santa Clara)'),
+  fixture('s9','E','2026-06-20T16:00:00-04:00','Germany','IvoryCoast','Toronto'),
+  fixture('s10','E','2026-06-20T19:00:00-05:00','Ecuador','Curacao','Kansas City'),
+  fixture('s11','F','2026-06-20T12:00:00-05:00','Netherlands','Sweden','Houston'),
+  fixture('s12','F','2026-06-20T22:00:00-06:00','Tunisia','Japan','Monterrey (Guadalupe)'),
+  fixture('s13','G','2026-06-21T12:00:00-07:00','Belgium','Iran','Los Angeles (Inglewood)'),
+  fixture('s14','G','2026-06-21T18:00:00-07:00','NewZealand','Egypt','Vancouver'),
+  fixture('s15','H','2026-06-21T12:00:00-04:00','Spain','SaudiArabia','Atlanta'),
+  fixture('s16','H','2026-06-21T18:00:00-04:00','Uruguay','CapeVerde','Miami (Miami Gardens)'),
+  fixture('s17','I','2026-06-22T17:00:00-04:00','France','Iraq','Philadelphia'),
+  fixture('s18','I','2026-06-22T20:00:00-04:00','Norway','Senegal','New York/New Jersey (East Rutherford)'),
+  fixture('s19','J','2026-06-22T12:00:00-05:00','Argentina','Austria','Dallas (Arlington)'),
+  fixture('s20','J','2026-06-22T20:00:00-07:00','Jordan','Algeria','San Francisco Bay Area (Santa Clara)'),
+  fixture('s21','K','2026-06-23T12:00:00-05:00','Portugal','Uzbekistan','Houston'),
+  fixture('s22','K','2026-06-23T20:00:00-06:00','Colombia','DRCCongo','Guadalajara (Zapopan)'),
+  fixture('s23','L','2026-06-23T16:00:00-04:00','England','Ghana','Boston (Foxborough)'),
+  fixture('s24','L','2026-06-23T19:00:00-04:00','Panama','Croatia','Toronto'),
+]
+
+export const thirdMatchday: Match[] = [
+  fixture('t1','A','2026-06-24T19:00:00-06:00','Czechia','Mexico','Mexico City'),
+  fixture('t2','A','2026-06-24T19:00:00-06:00','SouthAfrica','SouthKorea','Monterrey (Guadalupe)'),
+  fixture('t3','B','2026-06-24T12:00:00-07:00','Switzerland','Canada','Vancouver'),
+  fixture('t4','B','2026-06-24T12:00:00-07:00','Bosnia','Qatar','Seattle'),
+  fixture('t5','C','2026-06-24T18:00:00-04:00','Scotland','Brazil','Miami (Miami Gardens)'),
+  fixture('t6','C','2026-06-24T18:00:00-04:00','Morocco','Haiti','Atlanta'),
+  fixture('t7','D','2026-06-25T19:00:00-07:00','Turkey','USA','Los Angeles (Inglewood)'),
+  fixture('t8','D','2026-06-25T19:00:00-07:00','Paraguay','Australia','San Francisco Bay Area (Santa Clara)'),
+  fixture('t9','E','2026-06-25T16:00:00-04:00','Curacao','IvoryCoast','Philadelphia'),
+  fixture('t10','E','2026-06-25T16:00:00-04:00','Ecuador','Germany','New York/New Jersey (East Rutherford)'),
+  fixture('t11','F','2026-06-25T18:00:00-05:00','Japan','Sweden','Dallas (Arlington)'),
+  fixture('t12','F','2026-06-25T18:00:00-05:00','Tunisia','Netherlands','Kansas City'),
+  fixture('t13','G','2026-06-26T20:00:00-07:00','Egypt','Iran','Seattle'),
+  fixture('t14','G','2026-06-26T20:00:00-07:00','NewZealand','Belgium','Vancouver'),
+  fixture('t15','H','2026-06-26T19:00:00-05:00','CapeVerde','SaudiArabia','Houston'),
+  fixture('t16','H','2026-06-26T18:00:00-06:00','Uruguay','Spain','Guadalajara (Zapopan)'),
+  fixture('t17','I','2026-06-26T15:00:00-04:00','Norway','France','Boston (Foxborough)'),
+  fixture('t18','I','2026-06-26T15:00:00-04:00','Senegal','Iraq','Toronto'),
+  fixture('t19','J','2026-06-27T21:00:00-05:00','Algeria','Austria','Kansas City'),
+  fixture('t20','J','2026-06-27T21:00:00-05:00','Jordan','Argentina','Dallas (Arlington)'),
+  fixture('t21','K','2026-06-27T19:30:00-04:00','Colombia','Portugal','Miami (Miami Gardens)'),
+  fixture('t22','K','2026-06-27T19:30:00-04:00','DRCCongo','Uzbekistan','Atlanta'),
+  fixture('t23','L','2026-06-27T17:00:00-04:00','Panama','England','New York/New Jersey (East Rutherford)'),
+  fixture('t24','L','2026-06-27T17:00:00-04:00','Croatia','Ghana','Philadelphia'),
+]
+
+export const allGroupMatches = [...matches, ...secondMatchday, ...thirdMatchday]
 
 export const groupColors: Record<string, string> = {
   A:'#1647cc', B:'#08713d', C:'#ff5c00', D:'#7835c8', E:'#1647cc', F:'#08713d',
