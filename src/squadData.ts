@@ -1,16 +1,20 @@
-import type { Language } from './data'
+import type { Language, Match } from './data'
 
 export type PlayerPosition = 'GK' | 'DEF' | 'MID' | 'FWD'
+export type LineupStatus = 'confirmed' | 'probable' | 'unavailable'
 
 export interface SquadPlayer {
+  playerId: string
+  teamId: string
   name: string
-  number: number
+  number: number | null
   position: PlayerPosition
   role: string
-  club: string
-  age?: string
-  foot?: string
-  debut?: string
+  club: string | null
+  age?: number | null
+  foot?: string | null
+  debut?: string | null
+  status: LineupStatus
 }
 
 export interface CareerSummary {
@@ -18,106 +22,79 @@ export interface CareerSummary {
   sourceUrl: string
 }
 
-const CACHE_HOURS = 24
-const teamPages: Record<string,string> = {
-  USA:'United States', SouthKorea:'South Korea', SouthAfrica:'South Africa', NewZealand:'New Zealand',
-  IvoryCoast:'Ivory Coast', SaudiArabia:'Saudi Arabia', CapeVerde:'Cape Verde', DRCCongo:'DR Congo',
-  Bosnia:'Bosnia and Herzegovina', Curacao:'Curaçao',
+interface SquadFile {
+  teams: Record<string,{ appTeamId:string; players:SquadPlayer[] }>
 }
 
-const brazilPreview: SquadPlayer[] = [
-  ['Alisson Becker',1,'GK','GK','Liverpool'],['Bento',12,'GK','GK','Al-Nassr'],
-  ['Marquinhos',4,'DEF','CB','Paris Saint-Germain'],['Gabriel Magalhães',3,'DEF','CB','Arsenal'],
-  ['Éder Militão',14,'DEF','CB','Real Madrid'],['Alex Sandro',6,'DEF','LB','Flamengo'],
-  ['Danilo',2,'DEF','RB','Flamengo'],['Bruno Guimarães',8,'MID','CM','Newcastle United'],
-  ['Casemiro',5,'MID','DM','Manchester United'],['Lucas Paquetá',10,'MID','AM','West Ham United'],
-  ['Vinícius Júnior',7,'FWD','LW','Real Madrid'],['Raphinha',11,'FWD','RW','Barcelona'],
-  ['Rodrygo',19,'FWD','RW','Real Madrid'],['Richarlison',9,'FWD','ST','Tottenham Hotspur'],
-].map(([name,number,position,role,club])=>({name:name as string,number:number as number,position:position as PlayerPosition,role:role as string,club:club as string}))
-
-function fallbackSquad(team: string): SquadPlayer[] {
-  if (team === 'Brazil') return brazilPreview
-  const positions: PlayerPosition[] = ['GK','DEF','DEF','DEF','DEF','MID','MID','MID','FWD','FWD','FWD','GK','DEF','MID','FWD']
-  return positions.map((position,index)=>({
-    name:`${teamPages[team] ?? team} ${index + 1}`,
-    number:index + 1,
-    position,
-    role:position,
-    club:'—',
-  }))
+interface LineupFile {
+  matches: Record<string,Record<string,{ status:'confirmed'; playerIds:string[] }>>
 }
 
-function readCache<T>(key: string): T | null {
-  try {
-    const cached = JSON.parse(localStorage.getItem(key) ?? 'null') as { savedAt:number; value:T } | null
-    if (cached && Date.now() - cached.savedAt < CACHE_HOURS * 60 * 60 * 1000) return cached.value
-  } catch {}
-  return null
+interface ProfileFile {
+  players: Record<string,{
+    sourceUrl:string
+    dominantFoot:string | null
+    nationalTeamDebut:string | null
+    summary:{ es:string | null; en:string | null }
+  }>
 }
 
-function writeCache<T>(key: string, value: T) {
-  try { localStorage.setItem(key,JSON.stringify({savedAt:Date.now(),value})) } catch {}
+const dataUrl = (file:string) => `${import.meta.env.BASE_URL}data/${file}`
+const loadJson = <T,>(file:string) => fetch(dataUrl(file)).then(response=>{
+  if (!response.ok) throw new Error(`Unable to load ${file}`)
+  return response.json() as Promise<T>
+})
+
+let squadsPromise: Promise<SquadFile> | undefined
+let lineupsPromise: Promise<LineupFile> | undefined
+let profilesPromise: Promise<ProfileFile> | undefined
+
+function teamId(appTeamId:string) {
+  return appTeamId.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')
 }
 
-function normalizePosition(value: string): PlayerPosition {
-  const upper = value.toUpperCase()
-  if (upper.includes('GK') || upper.includes('GOALKEEPER')) return 'GK'
-  if (/DF|DEF|BACK/.test(upper)) return 'DEF'
-  if (/MF|MID/.test(upper)) return 'MID'
-  return 'FWD'
+function unavailablePlayer(id:string, selectedTeamId:string): SquadPlayer {
+  return {playerId:id,teamId:selectedTeamId,name:'Data unavailable',number:null,position:'GK',role:'—',club:null,status:'unavailable'}
 }
 
-function parseSquad(html: string): SquadPlayer[] {
-  const documentNode = new DOMParser().parseFromString(html,'text/html')
-  const heading = documentNode.querySelector('#Current_squad, #Players, #Squad')
-  let table = heading?.closest('h2,h3')?.nextElementSibling
-  while (table && table.tagName !== 'TABLE') table = table.nextElementSibling
-  const target = table?.tagName === 'TABLE' ? table : [...documentNode.querySelectorAll('table')].find(item=>/player/i.test(item.textContent ?? '') && /pos/i.test(item.textContent ?? ''))
-  if (!target) return []
-  return [...target.querySelectorAll('tr')].flatMap((row,index)=>{
-    const cells = [...row.querySelectorAll('td')]
-    const anchor = row.querySelector('th a, td a[title]') as HTMLAnchorElement | null
-    if (cells.length < 3 || !anchor) return []
-    const number = Number((cells[0]?.textContent ?? '').match(/\d+/)?.[0] ?? index)
-    const positionText = cells[1]?.textContent?.trim() ?? ''
-    const club = cells.at(-1)?.textContent?.trim().replace(/\s+/g,' ') ?? '—'
-    return [{name:anchor.textContent?.trim() || anchor.title,number,position:normalizePosition(positionText),role:positionText || '—',club}]
-  }).filter((player,index,list)=>player.name && list.findIndex(item=>item.name===player.name)===index).slice(0,26)
+function probableLineup(squad:SquadPlayer[]) {
+  const selected: SquadPlayer[] = []
+  const take = (position:PlayerPosition,count:number) => selected.push(...squad.filter(player=>player.position===position).slice(0,count))
+  take('GK',1); take('DEF',4); take('MID',3); take('FWD',3)
+  if (selected.length < 11) selected.push(...squad.filter(player=>!selected.includes(player)).slice(0,11-selected.length))
+  return selected.slice(0,11).map(player=>({...player,status:'probable' as const}))
 }
 
-export async function loadSquad(team: string): Promise<SquadPlayer[]> {
-  const key = `mundial-squad-${team}`
-  const cached = readCache<SquadPlayer[]>(key)
-  if (cached) return cached
-  try {
-    const country = teamPages[team] ?? team
-    const page = `${country} national football team`
-    const url = `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(page)}&prop=text&format=json&origin=*`
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('Squad request failed')
-    const data = await response.json() as { parse?:{ text?:{ '*':string } } }
-    const players = parseSquad(data.parse?.text?.['*'] ?? '')
-    if (players.length < 8) throw new Error('Squad table unavailable')
-    writeCache(key,players)
-    return players
-  } catch {
-    return fallbackSquad(team)
+export async function loadMatchPlayers(match:Match, appTeamId:string) {
+  squadsPromise ??= loadJson<SquadFile>('squads.json')
+  lineupsPromise ??= loadJson<LineupFile>('lineups.json').catch(()=>({matches:{}}))
+  const [squads,lineups] = await Promise.all([squadsPromise,lineupsPromise])
+  const selectedTeamId = teamId(appTeamId)
+  const squad = (squads.teams[selectedTeamId]?.players ?? []).map(player=>({...player,status:'probable' as const}))
+  const override = lineups.matches[match.id]?.[selectedTeamId]
+
+  if (override?.status === 'confirmed') {
+    const byId = new Map(squad.map(player=>[player.playerId,player]))
+    return {
+      squad,
+      lineup:override.playerIds.map(id=>byId.get(id) ? {...byId.get(id)!,status:'confirmed' as const} : unavailablePlayer(id,selectedTeamId)),
+      lineupStatus:'confirmed' as const,
+    }
   }
+
+  if (!squad.length) return {squad:[unavailablePlayer(`${selectedTeamId}_unavailable`,selectedTeamId)],lineup:[unavailablePlayer(`${selectedTeamId}_unavailable`,selectedTeamId)],lineupStatus:'unavailable' as const}
+  const isFuture = Date.now() < new Date(match.dateTime).getTime()
+  return {squad,lineup:probableLineup(squad),lineupStatus:isFuture ? 'probable' as const : 'unavailable' as const}
 }
 
 export async function loadCareer(player: SquadPlayer, language: Language): Promise<CareerSummary> {
-  const key = `mundial-career-${language}-${player.name}`
-  const cached = readCache<CareerSummary>(key)
-  if (cached) return cached
-  const host = language === 'es' ? 'es.wikipedia.org' : 'en.wikipedia.org'
+  profilesPromise ??= loadJson<ProfileFile>('playerProfiles.json')
   try {
-    const url = `https://${host}/api/rest_v1/page/summary/${encodeURIComponent(player.name.replaceAll(' ','_'))}`
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('Career request failed')
-    const data = await response.json() as { extract?:string; content_urls?:{ desktop?:{ page?:string } } }
-    const value = {extract:data.extract ?? '',sourceUrl:data.content_urls?.desktop?.page ?? `https://${host}/wiki/${encodeURIComponent(player.name)}`}
-    writeCache(key,value)
-    return value
+    const profile = (await profilesPromise).players[player.playerId]
+    if (!profile) return {extract:'',sourceUrl:''}
+    player.foot = profile.dominantFoot
+    player.debut = profile.nationalTeamDebut
+    return {extract:profile.summary[language] ?? '',sourceUrl:profile.sourceUrl}
   } catch {
     return {extract:'',sourceUrl:''}
   }
