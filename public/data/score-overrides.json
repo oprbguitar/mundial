@@ -5,5 +5,14 @@
     "group": "F",
     "score": "5-1",
     "status": "finished"
+  },
+  {
+    "homeTeamId": "spain",
+    "awayTeamId": "cape_verde",
+    "group": "H",
+    "date": "2026-06-15",
+    "score": "0-0",
+    "status": "finished",
+    "source": "manual-public-result"
   }
 ]

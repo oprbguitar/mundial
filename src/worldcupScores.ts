@@ -2,9 +2,10 @@ import type { Match } from './data'
 
 const REMOTE_DATA_URL = 'https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json'
 const CACHE_KEY = 'partidos-2026-scores'
-const CACHE_VERSION = 'scores-v2'
+const CACHE_VERSION = 'scores-v3'
 const CACHE_TTL = 60 * 60 * 1000
 const REFRESH_INTERVAL = 5 * 60 * 1000
+const FETCH_TIMEOUT = 5 * 1000
 
 const teamAliases: Record<string,string[]> = {
   mexico:['Mexico','México','MEX'],southafrica:['South Africa','Sudáfrica','RSA'],southkorea:['South Korea','Corea del Sur','Korea Republic','KOR'],czechia:['Czechia','Chequia','Czech Republic','CZE'],
@@ -14,7 +15,7 @@ const teamAliases: Record<string,string[]> = {
   germany:['Germany','Alemania','GER'],curacao:['Curacao','Curaçao','Curazao','CUW'],ivorycoast:['Ivory Coast','Côte d’Ivoire','Cote d Ivoire','Costa de Marfil','CIV'],ecuador:['Ecuador','ECU'],
   netherlands:['Netherlands','Países Bajos','Holland','NED'],japan:['Japan','Japón','JPN'],sweden:['Sweden','Suecia','SWE'],tunisia:['Tunisia','Túnez','Tunisie','TUN'],
   belgium:['Belgium','Bélgica','BEL'],egypt:['Egypt','Egipto','EGY'],iran:['Iran','Irán','IRN'],newzealand:['New Zealand','Nueva Zelanda','NZL'],
-  spain:['Spain','España','ESP'],capeverde:['Cape Verde','Cabo Verde','CPV'],saudiarabia:['Saudi Arabia','Arabia Saudita','KSA'],uruguay:['Uruguay','URU'],
+  spain:['Spain','España','ESP'],cape_verde:['Cape Verde','Cabo Verde','CPV'],saudiarabia:['Saudi Arabia','Arabia Saudita','KSA'],uruguay:['Uruguay','URU'],
   france:['France','Francia','FRA'],senegal:['Senegal','Sénégal','SEN'],iraq:['Iraq','Irak','IRQ'],norway:['Norway','Noruega','NOR'],
   argentina:['Argentina','ARG'],algeria:['Algeria','Argelia','ALG'],austria:['Austria','AUT'],jordan:['Jordan','Jordania','JOR'],
   portugal:['Portugal','POR'],drccongo:['DR Congo','DRC Congo','RD Congo','Congo DR','COD'],uzbekistan:['Uzbekistan','Uzbekistán','UZB'],colombia:['Colombia','COL'],
@@ -22,7 +23,7 @@ const teamAliases: Record<string,string[]> = {
 }
 
 const appTeamIds: Record<string,string> = {
-  Mexico:'mexico',SouthAfrica:'southafrica',SouthKorea:'southkorea',Czechia:'czechia',Canada:'canada',Bosnia:'bosnia',Qatar:'qatar',Switzerland:'switzerland',Brazil:'brazil',Morocco:'morocco',Haiti:'haiti',Scotland:'scotland',USA:'usa',Paraguay:'paraguay',Australia:'australia',Turkey:'turkey',Germany:'germany',Curacao:'curacao',IvoryCoast:'ivorycoast',Ecuador:'ecuador',Netherlands:'netherlands',Japan:'japan',Sweden:'sweden',Tunisia:'tunisia',Belgium:'belgium',Egypt:'egypt',Iran:'iran',NewZealand:'newzealand',Spain:'spain',CapeVerde:'capeverde',SaudiArabia:'saudiarabia',Uruguay:'uruguay',France:'france',Senegal:'senegal',Iraq:'iraq',Norway:'norway',Argentina:'argentina',Algeria:'algeria',Austria:'austria',Jordan:'jordan',Portugal:'portugal',DRCCongo:'drccongo',Uzbekistan:'uzbekistan',Colombia:'colombia',England:'england',Croatia:'croatia',Ghana:'ghana',Panama:'panama',
+  Mexico:'mexico',SouthAfrica:'southafrica',SouthKorea:'southkorea',Czechia:'czechia',Canada:'canada',Bosnia:'bosnia',Qatar:'qatar',Switzerland:'switzerland',Brazil:'brazil',Morocco:'morocco',Haiti:'haiti',Scotland:'scotland',USA:'usa',Paraguay:'paraguay',Australia:'australia',Turkey:'turkey',Germany:'germany',Curacao:'curacao',IvoryCoast:'ivorycoast',Ecuador:'ecuador',Netherlands:'netherlands',Japan:'japan',Sweden:'sweden',Tunisia:'tunisia',Belgium:'belgium',Egypt:'egypt',Iran:'iran',NewZealand:'newzealand',Spain:'spain',CapeVerde:'cape_verde',SaudiArabia:'saudiarabia',Uruguay:'uruguay',France:'france',Senegal:'senegal',Iraq:'iraq',Norway:'norway',Argentina:'argentina',Algeria:'algeria',Austria:'austria',Jordan:'jordan',Portugal:'portugal',DRCCongo:'drccongo',Uzbekistan:'uzbekistan',Colombia:'colombia',England:'england',Croatia:'croatia',Ghana:'ghana',Panama:'panama',
 }
 
 function normalize(value:string) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/[^a-z0-9]/g,'') }
@@ -39,7 +40,7 @@ interface SourceMatch {
   score?: { ft?: [number,number] }
 }
 interface OpenFootballData { matches?:SourceMatch[] }
-interface ScoreOverride { homeTeamId:string; awayTeamId:string; group:string; date?:string; score?:string|null; status?:string }
+interface ScoreOverride { homeTeamId:string; awayTeamId:string; group:string; date?:string; score?:string|null; status?:string; source?:string }
 interface ScoreUpdate { score?:string; status?:'finished' }
 interface ScoreCache { version:string; savedAt:number; scores:Record<string,string> }
 
@@ -102,9 +103,15 @@ export function subscribeToScore(matchId:string,listener:()=>void) {
 }
 
 async function fetchJson<T>(url:string) {
-  const response=await fetch(url,{cache:'no-store'})
-  if(!response.ok)throw new Error(`Score data request failed: ${response.status}`)
-  return response.json() as Promise<T>
+  const controller=new AbortController()
+  const timeout=window.setTimeout(()=>controller.abort(),FETCH_TIMEOUT)
+  try {
+    const response=await fetch(url,{cache:'no-store',signal:controller.signal})
+    if(!response.ok)throw new Error(`Score data request failed: ${response.status}`)
+    return response.json() as Promise<T>
+  } finally {
+    window.clearTimeout(timeout)
+  }
 }
 
 export async function refreshScores(fixtures:Match[]) {
