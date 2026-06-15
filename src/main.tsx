@@ -3,7 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { BarChart3, CalendarDays, ChevronDown, Clock3, MapPin, Trophy } from 'lucide-react'
 import { allGroupMatches, groupColors, matches, secondMatchday, teamNames, thirdMatchday, type Language, type Match, type Matchday } from './data'
 import { copy } from './i18n'
-import { readCachedScores, refreshScores } from './worldcupScores'
+import { getScoreSnapshot, startScoreRefresh, subscribeToScore } from './worldcupScores'
 import { getMatchStatus, getMinuteSnapshot, subscribeToMinute } from './matchStatus'
 import { MatchDetailsModal } from './MatchDetailsModal'
 import './styles.css'
@@ -48,8 +48,9 @@ function MatchStatusDot({ match, score, language }: { match:Match; score:string|
   return <span className={`status-dot ${status}`} aria-label={copy[language][status]} />
 }
 
-function MatchRow({ match, language, zone, liveScore, onOpen }: { match: Match; language:Language; zone:ZoneKey; liveScore?:string; onOpen:()=>void }) {
+function MatchRow({ match, language, zone, onOpen }: { match: Match; language:Language; zone:ZoneKey; onOpen:()=>void }) {
   const t = copy[language]
+  const liveScore = useSyncExternalStore(listener=>subscribeToScore(match.id,listener),()=>getScoreSnapshot(match.id),()=>getScoreSnapshot(match.id))
   const score = liveScore ?? match.score
   return <div className="match-row interactive-match" role="button" tabIndex={0} onClick={event=>{event.stopPropagation();onOpen()}} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onOpen()}}}>
     <MatchStatusDot match={match} score={score} language={language}/>
@@ -57,11 +58,11 @@ function MatchRow({ match, language, zone, liveScore, onOpen }: { match: Match; 
     <span className="versus">{t.vs}</span>
     <span className="team away"><img className="flag" src={`https://flagcdn.com/w40/${flagCodes[match.away]}.png`} alt=""/><span>{teamNames[match.away][language]}</span></span>
     <span className="match-time"><Clock3 aria-hidden="true" />{dateParts(match,zone,language).time}</span>
-    <span className={`score ${score ? 'done' : ''}`}>{score ?? '– –'}</span>
+    <span className={`score ${score ? 'done' : ''}`}>{score ?? '--'}</span>
   </div>
 }
 
-function GroupCard({ groupMatches, language, zone, scores, onOpen }: { groupMatches: Match[]; language:Language; zone:ZoneKey; scores:Record<string,string>; onOpen:(match:Match)=>void }) {
+function GroupCard({ groupMatches, language, zone, onOpen }: { groupMatches: Match[]; language:Language; zone:ZoneKey; onOpen:(match:Match)=>void }) {
   const group = groupMatches[0].group
   const dates = [...new Set(groupMatches.map(match=>dateParts(match,zone,language).short))]
   const venues = [...new Set(groupMatches.map(match=>[match.stadium,match.city].filter(Boolean).join(', ')))]
@@ -71,7 +72,7 @@ function GroupCard({ groupMatches, language, zone, scores, onOpen }: { groupMatc
       <h2>{copy[language].group} {group}</h2>
       <strong>{dates.join('–')}</strong>
     </header>
-    <div className="matches">{groupMatches.map(match=><MatchRow key={match.id} match={match} language={language} zone={zone} liveScore={scores[match.id]} onOpen={()=>onOpen(match)}/>)}</div>
+    <div className="matches">{groupMatches.map(match=><MatchRow key={match.id} match={match} language={language} zone={zone} onOpen={()=>onOpen(match)}/>)}</div>
     <footer className="venue"><MapPin aria-hidden="true"/><span>{venues.join(' · ')}</span></footer>
   </article>
 }
@@ -162,7 +163,6 @@ function App() {
   const [language,setLanguage] = useState<Language>('es')
   const [zone,setZone] = useState<ZoneKey>('official')
   const [matchday,setMatchday] = useState<Matchday>('first')
-  const [scores,setScores] = useState<Record<string,string>>(()=>readCachedScores() ?? {})
   const [supportOpen,setSupportOpen] = useState(false)
   const [detailMatch,setDetailMatch] = useState<Match|null>(null)
   const t = copy[language]
@@ -177,11 +177,7 @@ function App() {
   const zoneName = zones[zone][language]
   const subtitle = ({ first:t.subtitleFirst, second:t.subtitleSecond, third:t.subtitleThird, knockout:t.subtitleKnockout })[matchday]
 
-  useEffect(()=>{
-    let active = true
-    refreshScores(allGroupMatches).then(nextScores=>{ if (active) setScores(nextScores) }).catch(()=>{})
-    return ()=>{ active = false }
-  },[])
+  useEffect(()=>startScoreRefresh(allGroupMatches),[])
 
   return <div className="app-shell">
     <header className="topbar">
@@ -206,7 +202,7 @@ function App() {
       </div>
       {matchday === 'knockout'
         ? <section className="groups-grid knockout-grid">{knockoutStages.map(stage=><KnockoutCard key={stage.key} stage={stage} language={language}/>)}</section>
-        : <section className="groups-grid">{groups.map(group=><GroupCard key={group[0].group} groupMatches={group} language={language} zone={zone} scores={scores} onOpen={setDetailMatch}/>)}</section>}
+        : <section className="groups-grid">{groups.map(group=><GroupCard key={group[0].group} groupMatches={group} language={language} zone={zone} onOpen={setDetailMatch}/>)}</section>}
     </main>
 
     <footer className="bottom-panel">
