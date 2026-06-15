@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { BarChart3, CalendarDays, ChevronDown, Clock3, MapPin, Trophy } from 'lucide-react'
 import { allGroupMatches, groupColors, matches, secondMatchday, teamNames, thirdMatchday, type Language, type Match, type Matchday } from './data'
 import { copy } from './i18n'
 import { readCachedScores, refreshScores } from './worldcupScores'
+import { getMatchStatus, getMinuteSnapshot, subscribeToMinute } from './matchStatus'
 import './styles.css'
 
 const YAPE_NUMBER = '973337773'
@@ -40,11 +41,17 @@ function Selector({ value, onChange, label, children, className='' }: { value:st
   return <span className={`select-wrap ${className}`}><select aria-label={label} value={value} onChange={e=>onChange(e.target.value)}>{children}</select><ChevronDown aria-hidden="true" /></span>
 }
 
+function MatchStatusDot({ match, score, language }: { match:Match; score:string|null|undefined; language:Language }) {
+  const now = useSyncExternalStore(subscribeToMinute,getMinuteSnapshot,getMinuteSnapshot)
+  const status = getMatchStatus(match,score,now)
+  return <span className={`status-dot ${status}`} aria-label={copy[language][status]} />
+}
+
 function MatchRow({ match, language, zone, liveScore }: { match: Match; language:Language; zone:ZoneKey; liveScore?:string }) {
   const t = copy[language]
   const score = liveScore ?? match.score
   return <div className="match-row">
-    <span className={`status-dot ${match.status}`} aria-label={t[match.status]} />
+    <MatchStatusDot match={match} score={score} language={language}/>
     <span className="team home"><img className="flag" src={`https://flagcdn.com/w40/${flagCodes[match.home]}.png`} alt=""/><span>{teamNames[match.home][language]}</span></span>
     <span className="versus">{t.vs}</span>
     <span className="team away"><img className="flag" src={`https://flagcdn.com/w40/${flagCodes[match.away]}.png`} alt=""/><span>{teamNames[match.away][language]}</span></span>
