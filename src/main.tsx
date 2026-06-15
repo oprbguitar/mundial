@@ -5,6 +5,7 @@ import { allGroupMatches, groupColors, matches, secondMatchday, teamNames, third
 import { copy } from './i18n'
 import { readCachedScores, refreshScores } from './worldcupScores'
 import { getMatchStatus, getMinuteSnapshot, subscribeToMinute } from './matchStatus'
+import { MatchDetailsModal } from './MatchDetailsModal'
 import './styles.css'
 
 const YAPE_NUMBER = '973337773'
@@ -47,10 +48,10 @@ function MatchStatusDot({ match, score, language }: { match:Match; score:string|
   return <span className={`status-dot ${status}`} aria-label={copy[language][status]} />
 }
 
-function MatchRow({ match, language, zone, liveScore }: { match: Match; language:Language; zone:ZoneKey; liveScore?:string }) {
+function MatchRow({ match, language, zone, liveScore, onOpen }: { match: Match; language:Language; zone:ZoneKey; liveScore?:string; onOpen:()=>void }) {
   const t = copy[language]
   const score = liveScore ?? match.score
-  return <div className="match-row">
+  return <div className="match-row interactive-match" role="button" tabIndex={0} onClick={event=>{event.stopPropagation();onOpen()}} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onOpen()}}}>
     <MatchStatusDot match={match} score={score} language={language}/>
     <span className="team home"><img className="flag" src={`https://flagcdn.com/w40/${flagCodes[match.home]}.png`} alt=""/><span>{teamNames[match.home][language]}</span></span>
     <span className="versus">{t.vs}</span>
@@ -60,17 +61,17 @@ function MatchRow({ match, language, zone, liveScore }: { match: Match; language
   </div>
 }
 
-function GroupCard({ groupMatches, language, zone, scores }: { groupMatches: Match[]; language:Language; zone:ZoneKey; scores:Record<string,string> }) {
+function GroupCard({ groupMatches, language, zone, scores, onOpen }: { groupMatches: Match[]; language:Language; zone:ZoneKey; scores:Record<string,string>; onOpen:(match:Match)=>void }) {
   const group = groupMatches[0].group
   const dates = [...new Set(groupMatches.map(match=>dateParts(match,zone,language).short))]
   const venues = [...new Set(groupMatches.map(match=>[match.stadium,match.city].filter(Boolean).join(', ')))]
-  return <article className="group-card">
+  return <article className="group-card interactive-card" role="button" tabIndex={0} onClick={()=>onOpen(groupMatches[0])} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onOpen(groupMatches[0])}}}>
     <header className="card-header">
       <span className="group-badge" style={{background:groupColors[group]}}>{group}</span>
       <h2>{copy[language].group} {group}</h2>
       <strong>{dates.join('–')}</strong>
     </header>
-    <div className="matches">{groupMatches.map(match=><MatchRow key={match.id} match={match} language={language} zone={zone} liveScore={scores[match.id]}/>)}</div>
+    <div className="matches">{groupMatches.map(match=><MatchRow key={match.id} match={match} language={language} zone={zone} liveScore={scores[match.id]} onOpen={()=>onOpen(match)}/>)}</div>
     <footer className="venue"><MapPin aria-hidden="true"/><span>{venues.join(' · ')}</span></footer>
   </article>
 }
@@ -163,6 +164,7 @@ function App() {
   const [matchday,setMatchday] = useState<Matchday>('first')
   const [scores,setScores] = useState<Record<string,string>>(()=>readCachedScores() ?? {})
   const [supportOpen,setSupportOpen] = useState(false)
+  const [detailMatch,setDetailMatch] = useState<Match|null>(null)
   const t = copy[language]
   const visible = useMemo(()=>({ first:matches, second:secondMatchday, third:thirdMatchday, knockout:[] })[matchday],[matchday])
   const groups = useMemo(()=>Object.values(visible.reduce<Record<string,Match[]>>((acc,match)=>{(acc[match.group]??=[]).push(match); return acc},{})),[visible])
@@ -204,7 +206,7 @@ function App() {
       </div>
       {matchday === 'knockout'
         ? <section className="groups-grid knockout-grid">{knockoutStages.map(stage=><KnockoutCard key={stage.key} stage={stage} language={language}/>)}</section>
-        : <section className="groups-grid">{groups.map(group=><GroupCard key={group[0].group} groupMatches={group} language={language} zone={zone} scores={scores}/>)}</section>}
+        : <section className="groups-grid">{groups.map(group=><GroupCard key={group[0].group} groupMatches={group} language={language} zone={zone} scores={scores} onOpen={setDetailMatch}/>)}</section>}
     </main>
 
     <footer className="bottom-panel">
@@ -214,6 +216,7 @@ function App() {
       <div className="footer-block follow"><span className="chart-icon"><BarChart3/></span><p>{t.follow}<strong>{t.more}</strong><small className="data-source">Data: OpenFootball CC0</small></p></div>
     </footer>
     {supportOpen ? <SupportModal language={language} onClose={()=>setSupportOpen(false)}/> : null}
+    {detailMatch ? <MatchDetailsModal match={detailMatch} language={language} onClose={()=>setDetailMatch(null)}/> : null}
   </div>
 }
 
