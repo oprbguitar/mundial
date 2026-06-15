@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { BarChart3, CalendarDays, ChevronDown, Clock3, MapPin, Trophy } from 'lucide-react'
 import { allGroupMatches, groupColors, matches, secondMatchday, teamNames, thirdMatchday, type Language, type Match, type Matchday } from './data'
@@ -6,7 +6,8 @@ import { copy } from './i18n'
 import { readCachedScores, refreshScores } from './worldcupScores'
 import './styles.css'
 
-const COFFEE_LINK = '#'
+const YAPE_NUMBER = '973337773'
+const PAYPAL_ME_URL = 'https://paypal.me/oprb'
 
 const zones = {
   official: { zone: 'America/New_York', es: 'Oficial Mundial', en: 'World Official' },
@@ -99,11 +100,62 @@ function KnockoutCard({ stage, language }: { stage: KnockoutStage; language:Lang
   </article>
 }
 
+function SupportModal({ language, onClose }: { language:Language; onClose:()=>void }) {
+  const t = copy[language]
+  const closeButton = useRef<HTMLButtonElement>(null)
+  const [copied,setCopied] = useState(false)
+
+  useEffect(()=>{
+    closeButton.current?.focus()
+    const closeOnEscape = (event:KeyboardEvent)=>{ if (event.key === 'Escape') onClose() }
+    document.addEventListener('keydown',closeOnEscape)
+    return ()=>document.removeEventListener('keydown',closeOnEscape)
+  },[onClose])
+
+  const copyYape = async ()=>{
+    try {
+      await navigator.clipboard.writeText(YAPE_NUMBER)
+      setCopied(true)
+    } catch {
+      const input = document.createElement('textarea')
+      input.value = YAPE_NUMBER
+      input.style.position = 'fixed'
+      input.style.opacity = '0'
+      document.body.appendChild(input)
+      input.select()
+      document.execCommand('copy')
+      setCopied(true)
+      input.remove()
+    }
+    window.setTimeout(()=>setCopied(false),1800)
+  }
+
+  return <div className="support-overlay" role="presentation" onMouseDown={event=>{ if (event.target === event.currentTarget) onClose() }}>
+    <section className="support-modal" role="dialog" aria-modal="true" aria-labelledby="support-title" aria-describedby="support-subtitle">
+      <button ref={closeButton} className="support-close" type="button" onClick={onClose} aria-label={t.closeSupport}>×</button>
+      <header><span className="support-cup" aria-hidden="true">☕</span><div><h2 id="support-title">{t.coffee}</h2><p id="support-subtitle">{t.coffeeThanks}</p></div></header>
+      <div className="support-options">
+        <article className="support-option">
+          <span className="payment-badge yape-badge" aria-hidden="true">Y</span>
+          <div><strong>Yape Perú</strong><span>{YAPE_NUMBER}</span></div>
+          <button type="button" onClick={copyYape} aria-label={`${t.copyNumber} ${YAPE_NUMBER}`}>{copied?t.copied:t.copyNumber}</button>
+        </article>
+        <article className="support-option">
+          <span className="payment-badge paypal-badge" aria-hidden="true">P</span>
+          <div><strong>PayPal.Me</strong><span>paypal.me/oprb</span></div>
+          <a href={PAYPAL_ME_URL} target="_blank" rel="noopener noreferrer" aria-label={t.openPayPal}>{t.openPayPal}</a>
+        </article>
+      </div>
+    </section>
+  </div>
+}
+
 function App() {
   const [language,setLanguage] = useState<Language>('es')
   const [zone,setZone] = useState<ZoneKey>('official')
   const [matchday,setMatchday] = useState<Matchday>('first')
   const [scores,setScores] = useState<Record<string,string>>(()=>readCachedScores() ?? {})
+  const [supportOpen,setSupportOpen] = useState(false)
   const t = copy[language]
   const visible = useMemo(()=>({ first:matches, second:secondMatchday, third:thirdMatchday, knockout:[] })[matchday],[matchday])
   const groups = useMemo(()=>Object.values(visible.reduce<Record<string,Match[]>>((acc,match)=>{(acc[match.group]??=[]).push(match); return acc},{})),[visible])
@@ -135,7 +187,7 @@ function App() {
         <div className="control language"><label>{t.language}</label><div className="segments" role="group" aria-label={t.language}>
           <button className={language==='es'?'active':''} onClick={()=>setLanguage('es')}>Español</button><button className={language==='en'?'active':''} onClick={()=>setLanguage('en')}>English</button>
         </div></div>
-        <a className="coffee-button" href={COFFEE_LINK} target="_blank" rel="noreferrer" aria-label={t.coffee}><span aria-hidden="true">☕</span><span className="coffee-label">{t.coffee}</span></a>
+        <button className="coffee-button" type="button" onClick={()=>setSupportOpen(true)} aria-label={t.coffee}><span aria-hidden="true">☕</span><span className="coffee-label">{t.coffee}</span></button>
       </div>
     </header>
 
@@ -154,6 +206,7 @@ function App() {
       <div className="date-control"><strong>{t.dates}</strong><Selector value={matchday} onChange={value=>setMatchday(value as Matchday)} label={t.dates}><option value="first">{t.first}</option><option value="second">{t.second}</option><option value="third">{t.third}</option><option value="knockout">{t.knockout}</option></Selector><p><CalendarDays/>{range}</p></div>
       <div className="footer-block follow"><span className="chart-icon"><BarChart3/></span><p>{t.follow}<strong>{t.more}</strong><small className="data-source">Data: OpenFootball CC0</small></p></div>
     </footer>
+    {supportOpen ? <SupportModal language={language} onClose={()=>setSupportOpen(false)}/> : null}
   </div>
 }
 
