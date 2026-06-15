@@ -1,0 +1,40 @@
+name: Update World Cup Data
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create data directory
+        run: mkdir -p public/data
+
+      - name: Download World Cup JSON
+        run: |
+          curl --fail --location --retry 3 \
+            https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json \
+            --output public/data/worldcup.json.tmp
+
+      - name: Validate JSON
+        run: jq empty public/data/worldcup.json.tmp
+
+      - name: Replace data file
+        run: mv public/data/worldcup.json.tmp public/data/worldcup.json
+
+      - name: Commit changes if needed
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add public/data/worldcup.json
+          git diff --cached --quiet || git commit -m "Update World Cup data"
+          git push

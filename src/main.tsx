@@ -1,9 +1,12 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { BarChart3, CalendarDays, ChevronDown, Clock3, MapPin, Trophy } from 'lucide-react'
 import { groupColors, matches, teamNames, type Host, type Language, type Match } from './data'
 import { copy } from './i18n'
+import { readCachedScores, refreshScores } from './worldcupScores'
 import './styles.css'
+
+const COFFEE_LINK = '#'
 
 const zones = {
   peru: { zone: 'America/Lima', es: 'Perú', en: 'Peru' },
@@ -37,19 +40,20 @@ function Selector({ value, onChange, label, children, className='' }: { value:st
   return <span className={`select-wrap ${className}`}><select aria-label={label} value={value} onChange={e=>onChange(e.target.value)}>{children}</select><ChevronDown aria-hidden="true" /></span>
 }
 
-function MatchRow({ match, language, zone }: { match: Match; language:Language; zone:ZoneKey }) {
+function MatchRow({ match, language, zone, liveScore }: { match: Match; language:Language; zone:ZoneKey; liveScore?:string }) {
   const t = copy[language]
+  const score = liveScore ?? match.score
   return <div className="match-row">
     <span className={`status-dot ${match.status}`} aria-label={t[match.status]} />
     <span className="team home"><img className="flag" src={`https://flagcdn.com/w40/${flagCodes[match.home]}.png`} alt=""/><span>{teamNames[match.home][language]}</span></span>
     <span className="versus">{t.vs}</span>
     <span className="team away"><img className="flag" src={`https://flagcdn.com/w40/${flagCodes[match.away]}.png`} alt=""/><span>{teamNames[match.away][language]}</span></span>
     <span className="match-time"><Clock3 aria-hidden="true" />{dateParts(match,zone,language).time}</span>
-    <span className={`score ${match.score ? 'done' : ''}`}>{match.score ?? '– –'}</span>
+    <span className={`score ${score ? 'done' : ''}`}>{score ?? '– –'}</span>
   </div>
 }
 
-function GroupCard({ groupMatches, language, zone }: { groupMatches: Match[]; language:Language; zone:ZoneKey }) {
+function GroupCard({ groupMatches, language, zone, scores }: { groupMatches: Match[]; language:Language; zone:ZoneKey; scores:Record<string,string> }) {
   const group = groupMatches[0].group
   const dates = [...new Set(groupMatches.map(match=>dateParts(match,zone,language).short))]
   const venue = groupMatches[0]
@@ -59,7 +63,7 @@ function GroupCard({ groupMatches, language, zone }: { groupMatches: Match[]; la
       <h2>{copy[language].group} {group}</h2>
       <strong>{dates.join('–')}</strong>
     </header>
-    <div className="matches">{groupMatches.map(match=><MatchRow key={match.id} match={match} language={language} zone={zone}/>)}</div>
+    <div className="matches">{groupMatches.map(match=><MatchRow key={match.id} match={match} language={language} zone={zone} liveScore={scores[match.id]}/>)}</div>
     <footer className="venue"><MapPin aria-hidden="true"/><span>{venue.stadium}, {venue.city}</span></footer>
   </article>
 }
@@ -69,6 +73,7 @@ function App() {
   const [host,setHost] = useState<Host>('all')
   const [zone,setZone] = useState<ZoneKey>('peru')
   const [matchday,setMatchday] = useState('first')
+  const [scores,setScores] = useState<Record<string,string>>(()=>readCachedScores() ?? {})
   const t = copy[language]
   const visible = useMemo(()=>matchday === 'first' ? matches.filter(match=>host === 'all' || match.host === host) : [],[host,matchday])
   const groups = useMemo(()=>Object.values(visible.reduce<Record<string,Match[]>>((acc,match)=>{(acc[match.group]??=[]).push(match); return acc},{})),[visible])
@@ -79,6 +84,12 @@ function App() {
     return language === 'es' ? `${min}–${max} de junio de 2026` : `June ${min}–${max}, 2026`
   },[visible,zone,language])
   const zoneName = zones[zone][language]
+
+  useEffect(()=>{
+    let active = true
+    refreshScores(matches).then(nextScores=>{ if (active) setScores(nextScores) }).catch(()=>{})
+    return ()=>{ active = false }
+  },[])
 
   return <div className="app-shell">
     <header className="topbar">
@@ -96,6 +107,7 @@ function App() {
         <div className="control host"><label>{t.host}</label><div className="segments host-segments" role="group" aria-label={t.host}>
           {([['all',t.all],['Mexico',t.mexico],['USA',t.usa],['Canada',t.canada]] as [Host,string][]).map(([key,label])=><button key={key} className={`${host===key?'active ':''}${key.toLowerCase()}`} onClick={()=>setHost(key)}>{label}</button>)}
         </div></div>
+        <a className="coffee-button" href={COFFEE_LINK} target="_blank" rel="noreferrer" aria-label={t.coffee}><span aria-hidden="true">☕</span><span className="coffee-label">{t.coffee}</span></a>
       </div>
     </header>
 
@@ -103,14 +115,14 @@ function App() {
       <div className="legend" aria-label="Match status">
         <span><i className="status-dot scheduled"/>{t.scheduled}</span><span><i className="status-dot live"/>{t.live}</span><span><i className="status-dot finished"/>{t.finished}</span>
       </div>
-      {groups.length ? <section className={`groups-grid ${groups.length < 4 ? 'filtered' : ''}`}>{groups.map(group=><GroupCard key={group[0].group} groupMatches={group} language={language} zone={zone}/>)}</section> : <section className="empty-state"><CalendarDays/><strong>{matchday==='second'?t.coming:t.noMatches}</strong></section>}
+      {groups.length ? <section className={`groups-grid ${groups.length < 4 ? 'filtered' : ''}`}>{groups.map(group=><GroupCard key={group[0].group} groupMatches={group} language={language} zone={zone} scores={scores}/>)}</section> : <section className="empty-state"><CalendarDays/><strong>{matchday==='second'?t.coming:t.noMatches}</strong></section>}
     </main>
 
     <footer className="bottom-panel">
       <div className="footer-block local"><Clock3/><p>{t.timePrefix} <strong>{t.localTime} ({zoneName})</strong></p></div>
       <div className="footer-block notice"><span className="stadium-icon">◉</span><p>{t.notice}</p></div>
       <div className="date-control"><strong>{t.dates}</strong><Selector value={matchday} onChange={setMatchday} label={t.dates}><option value="first">{t.first}</option><option value="second">{t.second}</option></Selector><p><CalendarDays/>{range}</p></div>
-      <div className="footer-block follow"><span className="chart-icon"><BarChart3/></span><p>{t.follow}<strong>{t.more}</strong></p></div>
+      <div className="footer-block follow"><span className="chart-icon"><BarChart3/></span><p>{t.follow}<strong>{t.more}</strong><small className="data-source">Data: OpenFootball CC0</small></p></div>
     </footer>
   </div>
 }
