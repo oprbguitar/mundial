@@ -2,7 +2,7 @@ import type { Match } from './data'
 
 const REMOTE_DATA_URL = 'https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json'
 const CACHE_KEY = 'partidos-2026-scores'
-const CACHE_VERSION = 'scores-v3'
+const CACHE_VERSION = 'scores-v4'
 const CACHE_TTL = 60 * 60 * 1000
 const REFRESH_INTERVAL = 5 * 60 * 1000
 const FETCH_TIMEOUT = 5 * 1000
@@ -74,6 +74,10 @@ function findUpdate(index:Map<string,ScoreUpdate>,fixture:Match) {
   return {...reversed,score:`${home}-${away}`}
 }
 
+function isDueForScore(fixture:Match) {
+  return Date.now() >= new Date(fixture.dateTime).getTime()
+}
+
 function adaptOverrides(overrides:ScoreOverride[],fixtures:Match[]) {
   const index=new Map<string,ScoreUpdate>()
   for (const item of overrides) {
@@ -117,13 +121,15 @@ async function fetchJson<T>(url:string) {
 export async function refreshScores(fixtures:Match[]) {
   const base=import.meta.env.BASE_URL
   const overrides=await fetchJson<ScoreOverride[]>(`${base}data/score-overrides.json`).catch(()=>[])
-  let data:OpenFootballData
-  try { data=await fetchJson<OpenFootballData>(`${base}data/worldcup.json`) }
-  catch { data=await fetchJson<OpenFootballData>(REMOTE_DATA_URL) }
+  const localData=await fetchJson<OpenFootballData>(`${base}data/worldcup.json`).catch(()=>null)
+  const localIndex=localData ? indexSource(localData) : new Map<string,ScoreUpdate>()
+  const needsRemote=fixtures.some(fixture=>isDueForScore(fixture) && !findUpdate(localIndex,fixture)?.score)
+  const remoteData=!localData || needsRemote ? await fetchJson<OpenFootballData>(REMOTE_DATA_URL).catch(()=>null) : null
 
-  const sourceIndex=indexSource(data),overrideIndex=adaptOverrides(overrides,fixtures),changed:string[]=[]
+  const sourceIndexes=[localIndex,remoteData ? indexSource(remoteData) : null].filter(Boolean) as Map<string,ScoreUpdate>[]
+  const overrideIndex=adaptOverrides(overrides,fixtures),changed:string[]=[]
   for (const fixture of fixtures) {
-    const update=findUpdate(overrideIndex,fixture) ?? findUpdate(sourceIndex,fixture)
+    const update=findUpdate(overrideIndex,fixture) ?? sourceIndexes.map(index=>findUpdate(index,fixture)).find(item=>item?.score)
     if (update?.score && scores[fixture.id]!==update.score) { scores[fixture.id]=update.score;changed.push(fixture.id) }
   }
   try { localStorage.setItem(CACHE_KEY,JSON.stringify({version:CACHE_VERSION,savedAt:Date.now(),scores} satisfies ScoreCache)) } catch {}
