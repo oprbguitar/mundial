@@ -162,7 +162,7 @@ function SupportModal({ language, onClose }: { language:Language; onClose:()=>vo
 function App() {
   const [language,setLanguage] = useState<Language>('es')
   const [zone,setZone] = useState<ZoneKey>('official')
-  const [matchday,setMatchday] = useState<Matchday>('first')
+  const [matchday,setMatchday] = useState<Matchday>('second')
   const [supportOpen,setSupportOpen] = useState(false)
   const [detailMatch,setDetailMatch] = useState<Match|null>(null)
   const t = copy[language]
