@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useReducer, useState, useSyncExternalStore } from 'react'
+import React, { useEffect, useMemo, useReducer, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { CalendarDays, ChevronDown, Clock3, Info, Trophy } from 'lucide-react'
 import { allGroupMatches, flagCodes, groupColors, matches, secondMatchday, teamNames, thirdMatchday, type Language, type Match } from './data'
 import { copy } from './i18n'
-import { getMinuteSnapshot, getMatchStatus, subscribeToMinute } from './matchStatus'
 import { getScoreSnapshot, refreshScores, subscribeToScore } from './worldcupScores'
 import './fixture.css'
 
@@ -24,15 +23,6 @@ const fixtureCopy = {
 
 const scheduleByDay:Record<FixtureMatchday,Match[]> = {first:matches,second:secondMatchday,third:thirdMatchday}
 const rankingMatchesByDay:Record<FixtureMatchday,Match[]> = {first:matches,second:[...matches,...secondMatchday],third:allGroupMatches}
-
-function dateInfo(match:Match,zone:ZoneKey,language:Language) {
-  const locale=language==='es'?'es-ES':'en-US'
-  const date=new Date(match.dateTime)
-  return {
-    day:new Intl.DateTimeFormat(locale,{day:'numeric',month:'short',timeZone:zones[zone].zone}).format(date).replace('.',''),
-    time:new Intl.DateTimeFormat(locale,{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:zones[zone].zone}).format(date),
-  }
-}
 
 function Selector({value,onChange,label,children}:{value:string;onChange:(value:string)=>void;label:string;children:React.ReactNode}) {
   return <span className="fixture-select"><select value={value} onChange={event=>onChange(event.target.value)} aria-label={label}>{children}</select><ChevronDown aria-hidden="true"/></span>
@@ -87,29 +77,11 @@ function standingsFor(group:string,relevantMatches:Match[],scoreMap:ScoreMap,lan
   return [...table.values()].sort((a,b)=>b.points-a.points||b.gd-a.gd||b.gf-a.gf||headToHead(a.team,b.team)||teamNames[a.team][language].localeCompare(teamNames[b.team][language]))
 }
 
-function StatusDot({match,score,now,language}:{match:Match;score:string|null;now:number;language:Language}) {
-  const status=getMatchStatus(match,score,now)
-  return <i className={`fixture-status ${status}`} aria-label={copy[language][status]}/>
-}
-
-function MatchLine({match,score,zone,language,now}:{match:Match;score:string|null;zone:ZoneKey;language:Language;now:number}) {
-  const info=dateInfo(match,zone,language)
-  return <div className="fixture-match-line">
-    <StatusDot match={match} score={score} now={now} language={language}/>
-    <span className="fixture-team"><img src={`https://flagcdn.com/w40/${flagCodes[match.home]}.png`} alt=""/><b>{teamNames[match.home][language]}</b></span>
-    <span className="fixture-vs">{copy[language].vs}</span>
-    <span className="fixture-team"><img src={`https://flagcdn.com/w40/${flagCodes[match.away]}.png`} alt=""/><b>{teamNames[match.away][language]}</b></span>
-    <span className="fixture-time"><Clock3 aria-hidden="true"/>{info.time}</span>
-    <strong className={score?'fixture-score done':'fixture-score'}>{score??'--'}</strong>
-  </div>
-}
-
-function GroupFixtureCard({group,dayMatches,rankingMatches,scoreMap,zone,language,now}:{group:string;dayMatches:Match[];rankingMatches:Match[];scoreMap:ScoreMap;zone:ZoneKey;language:Language;now:number}) {
+function GroupFixtureCard({group,rankingMatches,scoreMap,language}:{group:string;rankingMatches:Match[];scoreMap:ScoreMap;language:Language}) {
   const t=fixtureCopy[language]
   const standings=standingsFor(group,rankingMatches,scoreMap,language)
   return <article className="fixture-group-card">
-    <header><span style={{background:groupColors[group]}}>{group}</span><h2>{copy[language].group} {group}</h2><small>{dayMatches.map(match=>dateInfo(match,zone,language).day).filter((value,index,array)=>array.indexOf(value)===index).join('–')}</small></header>
-    <div className="fixture-matches">{dayMatches.map(match=><MatchLine key={match.id} match={match} score={scoreMap[match.id]} zone={zone} language={language} now={now}/>)}</div>
+    <header><span style={{background:groupColors[group]}}>{group}</span><h2>{copy[language].group} {group}</h2></header>
     <div className="standing-title">{t.rank}</div>
     <div className="standing-head"><span></span><span>{t.played}</span><span>{t.difference}</span><span>{t.points}</span><span></span></div>
     <ol className="standing-list">{standings.map((row,index)=><li key={row.team}>
@@ -127,7 +99,6 @@ function FixtureApp() {
   const [warning,setWarning]=useState(false)
   const [lastUpdated,setLastUpdated]=useState<Date|null>(null)
   const scoreMap=useScores()
-  const now=useSyncExternalStore(subscribeToMinute,getMinuteSnapshot,getMinuteSnapshot)
   const t=copy[language],ft=fixtureCopy[language]
   const visible=scheduleByDay[matchday]
   const rankingMatches=rankingMatchesByDay[matchday]
@@ -162,7 +133,7 @@ function FixtureApp() {
       </div>
     </header>
     {warning?<div className="fixture-warning" role="status"><Info aria-hidden="true"/>{ft.warning}</div>:null}
-    <main className="fixture-main"><section className="fixture-grid">{groups.map(group=><GroupFixtureCard key={group[0].group} group={group[0].group} dayMatches={group} rankingMatches={rankingMatches} scoreMap={scoreMap} zone={zone} language={language} now={now}/>)}</section></main>
+    <main className="fixture-main"><section className="fixture-grid">{groups.map(group=><GroupFixtureCard key={group[0].group} group={group[0].group} rankingMatches={rankingMatches} scoreMap={scoreMap} language={language}/>)}</section></main>
     <footer className="fixture-footer">
       <div><Clock3 aria-hidden="true"/><span>{t.timePrefix}<strong>{t.localTime} ({zones[zone][language]})</strong></span></div>
       <div><CalendarDays aria-hidden="true"/><span>{t.dates}<strong>{range}</strong></span></div>
