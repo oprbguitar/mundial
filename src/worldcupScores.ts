@@ -125,6 +125,7 @@ export async function refreshScores(fixtures:Match[]) {
   const localIndex=localData ? indexSource(localData) : new Map<string,ScoreUpdate>()
   const needsRemote=fixtures.some(fixture=>isDueForScore(fixture) && !findUpdate(localIndex,fixture)?.score)
   const remoteData=!localData || needsRemote ? await fetchJson<OpenFootballData>(REMOTE_DATA_URL).catch(()=>null) : null
+  const sourceUnavailable=!localData&&!remoteData
 
   const sourceIndexes=[localIndex,remoteData ? indexSource(remoteData) : null].filter(Boolean) as Map<string,ScoreUpdate>[]
   const overrideIndex=adaptOverrides(overrides,fixtures),changed:string[]=[]
@@ -134,6 +135,7 @@ export async function refreshScores(fixtures:Match[]) {
   }
   try { localStorage.setItem(CACHE_KEY,JSON.stringify({version:CACHE_VERSION,savedAt:Date.now(),scores} satisfies ScoreCache)) } catch {}
   changed.forEach(matchId=>listeners.get(matchId)?.forEach(listener=>listener()))
+  if (sourceUnavailable) throw new Error('Score source unavailable')
   return changed
 }
 

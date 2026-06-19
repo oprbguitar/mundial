@@ -47,6 +47,15 @@ export const teamNames: TeamNames = {
   Ghana: { es: 'Ghana', en: 'Ghana' }, Panama: { es: 'Panamá', en: 'Panama' },
 }
 
+export const flagCodes: Record<string,string> = {
+  Mexico:'mx', SouthAfrica:'za', SouthKorea:'kr', Czechia:'cz', Canada:'ca', Bosnia:'ba', Qatar:'qa', Switzerland:'ch',
+  Brazil:'br', Morocco:'ma', Haiti:'ht', Scotland:'gb-sct', USA:'us', Paraguay:'py', Australia:'au', Turkey:'tr',
+  Germany:'de', Curacao:'cw', IvoryCoast:'ci', Ecuador:'ec', Netherlands:'nl', Japan:'jp', Sweden:'se', Tunisia:'tn',
+  Belgium:'be', Egypt:'eg', Iran:'ir', NewZealand:'nz', Spain:'es', CapeVerde:'cv', SaudiArabia:'sa', Uruguay:'uy',
+  France:'fr', Senegal:'sn', Iraq:'iq', Norway:'no', Argentina:'ar', Algeria:'dz', Austria:'at', Jordan:'jo',
+  Portugal:'pt', DRCCongo:'cd', Uzbekistan:'uz', Colombia:'co', England:'gb-eng', Croatia:'hr', Ghana:'gh', Panama:'pa',
+}
+
 const m = (id: string, group: string, day: number, time: string, home: string, homeFlag: string, away: string, awayFlag: string, host: Exclude<Host, 'all'>, stadium: string, city: string, score: string | null): Match => ({
   id, group, dateTime: `2026-06-${String(day).padStart(2, '0')}T${time}:00-05:00`, home, away, homeFlag, awayFlag, host, stadium, city, score, status: score ? 'finished' : 'scheduled',
 })
