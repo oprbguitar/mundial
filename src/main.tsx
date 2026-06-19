@@ -162,7 +162,7 @@ function SupportModal({ language, onClose }: { language:Language; onClose:()=>vo
 function App() {
   const [language,setLanguage] = useState<Language>('es')
   const [zone,setZone] = useState<ZoneKey>('official')
-  const [matchday,setMatchday] = useState<Matchday>('second')
+  const [matchday,setMatchday] = useState<Matchday>(()=>window.location.hash==='#/fixture'?'knockout':'second')
   const [supportOpen,setSupportOpen] = useState(false)
   const [detailMatch,setDetailMatch] = useState<Match|null>(null)
   const t = copy[language]
@@ -178,6 +178,11 @@ function App() {
   const subtitle = ({ first:t.subtitleFirst, second:t.subtitleSecond, third:t.subtitleThird, knockout:t.subtitleKnockout })[matchday]
 
   useEffect(()=>startScoreRefresh(allGroupMatches),[])
+  useEffect(()=>{
+    const syncFixtureRoute=()=>setMatchday(window.location.hash==='#/fixture'?'knockout':'second')
+    window.addEventListener('hashchange',syncFixtureRoute)
+    return ()=>window.removeEventListener('hashchange',syncFixtureRoute)
+  },[])
 
   return <div className="app-shell">
     <header className="topbar">
@@ -186,6 +191,7 @@ function App() {
         <div><h1>{t.title}</h1><p>{subtitle}</p></div>
       </div>
       <div className="controls">
+        <a className="fixture-btn" href="#/fixture" aria-label={language==='es'?'Abrir fixture':'Open fixture page'}><CalendarDays aria-hidden="true"/><span>Fixture</span></a>
         <div className="control timezone"><label>{t.viewTime}</label><Selector value={zone} onChange={v=>setZone(v as ZoneKey)} label={t.viewTime} className="dark-select">
           {Object.entries(zones).map(([key,item])=><option key={key} value={key}>{item[language]}</option>)}
         </Selector></div>
@@ -208,7 +214,7 @@ function App() {
     <footer className="bottom-panel">
       <div className="footer-block local"><Clock3/><p>{t.timePrefix} <strong>{t.localTime} ({zoneName})</strong></p></div>
       <div className="footer-block notice"><span className="stadium-icon">◉</span><p>{t.notice}</p></div>
-      <div className="date-control"><strong>{t.dates}</strong><Selector value={matchday} onChange={value=>setMatchday(value as Matchday)} label={t.dates}><option value="first">{t.first}</option><option value="second">{t.second}</option><option value="third">{t.third}</option><option value="knockout">{t.knockout}</option></Selector><p><CalendarDays/>{range}</p></div>
+      <div className="date-control"><strong>{t.dates}</strong><Selector value={matchday} onChange={value=>{history.replaceState(null,'',location.pathname+location.search);setMatchday(value as Matchday)}} label={t.dates}><option value="first">{t.first}</option><option value="second">{t.second}</option><option value="third">{t.third}</option><option value="knockout">{t.knockout}</option></Selector><p><CalendarDays/>{range}</p></div>
       <div className="footer-block follow"><span className="chart-icon"><BarChart3/></span><p>{t.follow}<strong>{t.more}</strong><small className="data-source">Data: OpenFootball CC0</small></p></div>
     </footer>
     {supportOpen ? <SupportModal language={language} onClose={()=>setSupportOpen(false)}/> : null}
