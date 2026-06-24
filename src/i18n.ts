@@ -2,7 +2,7 @@ import type { Language } from './data'
 
 export const copy = {
   es: {
-    title:'Partidos 2026', subtitleFirst:'Primera fecha de fase de grupos', subtitleSecond:'Segunda fecha de fase de grupos', subtitleThird:'Tercera fecha de fase de grupos', subtitleKnockout:'Fase eliminatoria', viewTime:'Ver horario', language:'Idioma',
+    title:'Partidos 2026', subtitleFirst:'Primera fecha de fase de grupos', subtitleSecond:'Segunda fecha de fase de grupos', subtitleThird:'Tercera fecha de fase de grupos', subtitleKnockout:'Fase eliminatoria', viewTime:'Horario', language:'Idioma',
     all:'Todas', mexico:'México', usa:'EE.UU.', canada:'Canadá', scheduled:'Programado', live:'En juego', finished:'Finalizado',
     group:'Grupo', dates:'Fechas:', first:'Primera fecha', second:'Segunda fecha', third:'Tercera fecha', knockout:'Eliminatorias', round32:'Ronda de 32', round16:'Octavos', quarterfinals:'Cuartos', semifinals:'Semifinales', thirdPlace:'Tercer puesto', final:'Final',
     timePrefix:'Todos los horarios están en', localTime:'hora local', notice:'Los horarios pueden cambiar. Consulta la información más reciente.',
