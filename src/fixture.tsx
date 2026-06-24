@@ -22,7 +22,6 @@ const fixtureCopy = {
 } as const
 
 const scheduleByDay:Record<FixtureMatchday,Match[]> = {first:matches,second:secondMatchday,third:thirdMatchday}
-const rankingMatchesByDay:Record<FixtureMatchday,Match[]> = {first:matches,second:[...matches,...secondMatchday],third:allGroupMatches}
 
 function Selector({value,onChange,label,children}:{value:string;onChange:(value:string)=>void;label:string;children:React.ReactNode}) {
   return <span className="fixture-select"><select value={value} onChange={event=>onChange(event.target.value)} aria-label={label}>{children}</select><ChevronDown aria-hidden="true"/></span>
@@ -101,7 +100,7 @@ function FixtureApp() {
   const scoreMap=useScores()
   const t=copy[language],ft=fixtureCopy[language]
   const visible=scheduleByDay[matchday]
-  const rankingMatches=rankingMatchesByDay[matchday]
+  const rankingMatches=allGroupMatches
   const groups=useMemo(()=>Object.values(visible.reduce<Record<string,Match[]>>((result,match)=>{(result[match.group]??=[]).push(match);return result},{})),[visible])
   const days=visible.map(match=>Number(new Intl.DateTimeFormat('en',{day:'numeric',timeZone:zones[zone].zone}).format(new Date(match.dateTime))))
   const range=language==='es'?`${Math.min(...days)}–${Math.max(...days)} de junio de 2026`:`June ${Math.min(...days)}–${Math.max(...days)}, 2026`
@@ -127,8 +126,8 @@ function FixtureApp() {
       <div className="fixture-brand"><span><Trophy aria-hidden="true"/></span><div><h1>{t.title}</h1><p>{subtitle}</p></div></div>
       <div className="fixture-controls">
         <a className="back-dates-btn" href="./index.html" aria-label={ft.back}>{ft.back}</a>
-        <label><span>{ft.date}</span><Selector value={matchday} onChange={value=>setMatchday(value as FixtureMatchday)} label={t.dates}><option value="first">{t.first}</option><option value="second">{t.second}</option><option value="third">{t.third}</option></Selector></label>
-        <label><span>{ft.timezone}</span><Selector value={zone} onChange={value=>setZone(value as ZoneKey)} label={t.viewTime}>{Object.entries(zones).map(([key,item])=><option key={key} value={key}>{item[language]}</option>)}</Selector></label>
+        <label className="fixture-control-compact"><Selector value={matchday} onChange={value=>setMatchday(value as FixtureMatchday)} label={t.dates}><option value="first">{t.first}</option><option value="second">{t.second}</option><option value="third">{t.third}</option></Selector></label>
+        <label className="fixture-control-compact"><Selector value={zone} onChange={value=>setZone(value as ZoneKey)} label={t.viewTime}>{Object.entries(zones).map(([key,item])=><option key={key} value={key}>{item[language]}</option>)}</Selector></label>
         <div className="fixture-language" role="group" aria-label={t.language}><button className={language==='es'?'active':''} onClick={()=>setLanguage('es')}>ES</button><button className={language==='en'?'active':''} onClick={()=>setLanguage('en')}>EN</button></div>
       </div>
     </header>
