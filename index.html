@@ -8,6 +8,11 @@
     <link rel="icon" type="image/svg+xml" href="/mundial/favicon.svg" />
     <style>
       .status-dot.scheduled{background:#2aa04f;box-shadow:0 0 0 3px rgba(42,160,79,.16)}
+      .fixture-btn{animation:fixture-slow-pulse 3.2s ease-in-out infinite}
+      .fixture-btn span{font-size:0}
+      .fixture-btn span::after{content:'Ver fixture';font-size:13px;letter-spacing:.02em}
+      @keyframes fixture-slow-pulse{0%,100%{filter:brightness(1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.04),0 0 0 0 rgba(245,178,65,0)}50%{filter:brightness(1.18);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 0 16px 4px rgba(245,178,65,.42)}}
+      @media (prefers-reduced-motion:reduce){.fixture-btn{animation:none!important}}
     </style>
     <title>Partidos 2026</title>
   </head>
