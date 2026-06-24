@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useReducer, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Activity, ArrowLeft, BarChart3, CalendarDays, Goal, Shield, Trophy, Users, Volleyball } from 'lucide-react'
+import { Activity, ArrowLeft, BarChart3, CalendarDays, Goal, Handshake, Shield, ShieldCheck, Target, TrendingUp, Trophy, Users, Volleyball } from 'lucide-react'
 import { allGroupMatches, flagCodes, teamNames, type Language, type Match } from './data'
+import { cleanSheetsByGK, disciplineByTeam, topAssists, topEfficiency, topSaves, topScorers, topShots } from './playerStats'
 import { getScoreSnapshot, refreshScores, subscribeToScore } from './worldcupScores'
 import './statistics.css'
 
@@ -20,14 +21,21 @@ type TeamStat = {
 }
 type StatRow = {
   team:string
+  player?:string
   value:number|string
   extra?:Array<number|string>
+}
+type SummaryRow = {
+  icon:React.ReactNode
+  label:{es:string;en:string}
+  value:string|number
 }
 type StatCard = {
   icon:React.ReactNode
   title:{es:string;en:string}
   columns?:{es:string[];en:string[]}
   rows:StatRow[]
+  summaryRows?:SummaryRow[]
 }
 
 function readScores(fixtures:Match[]):ScoreMap {
@@ -58,15 +66,18 @@ function formatDateTime(date:Date,language:Language) {
 function buildTeamStats(scoreMap:ScoreMap) {
   const teams=[...new Set(allGroupMatches.flatMap(match=>[match.home,match.away]))]
   const table=new Map(teams.map(team=>[team,{team,played:0,wins:0,draws:0,losses:0,gf:0,ga:0,gd:0,points:0,cleanSheets:0} satisfies TeamStat]))
-  let playedMatches=0,totalGoals=0
+  let playedMatches=0,totalGoals=0,highScoringMatches=0,goallessMatches=0
 
   for(const match of allGroupMatches){
     const score=parseScore(scoreMap[match.id])
     if(!score) continue
     const [homeGoals,awayGoals]=score
+    const matchTotal=homeGoals+awayGoals
     const home=table.get(match.home)!,away=table.get(match.away)!
     playedMatches++
-    totalGoals+=homeGoals+awayGoals
+    totalGoals+=matchTotal
+    if(matchTotal>=3) highScoringMatches++
+    if(matchTotal===0) goallessMatches++
     home.played++;away.played++
     home.gf+=homeGoals;home.ga+=awayGoals
     away.gf+=awayGoals;away.ga+=homeGoals
@@ -77,82 +88,98 @@ function buildTeamStats(scoreMap:ScoreMap) {
     else{home.draws++;away.draws++;home.points++;away.points++}
   }
   table.forEach(row=>row.gd=row.gf-row.ga)
-  return {teams:[...table.values()],playedMatches,totalGoals,totalTeams:teams.length}
+  return {teams:[...table.values()],playedMatches,totalGoals,highScoringMatches,goallessMatches,totalTeams:teams.length}
 }
 
-function topRows(teams:TeamStat[],sorter:(a:TeamStat,b:TeamStat)=>number,value:(team:TeamStat)=>number|string,extra?:(team:TeamStat)=>Array<number|string>) {
-  return [...teams].sort((a,b)=>sorter(a,b)||teamNames[a.team].es.localeCompare(teamNames[b.team].es)).slice(0,8).map(team=>({team:team.team,value:value(team),extra:extra?.(team)}))
+function topTeamRows(teams:TeamStat[],sorter:(a:TeamStat,b:TeamStat)=>number,value:(team:TeamStat)=>number|string,extra?:(team:TeamStat)=>Array<number|string>):StatRow[] {
+  return [...teams].sort((a,b)=>sorter(a,b)||teamNames[a.team].es.localeCompare(teamNames[b.team].es)).slice(0,7).map(team=>({team:team.team,value:value(team),extra:extra?.(team)}))
 }
 
-function buildCards(teams:TeamStat[],scoreMap:ScoreMap):StatCard[] {
+function playerRows(entries:{player:string;team:string;value:number;extra?:Array<number|string>}[]):StatRow[] {
+  return entries.map(e=>({team:e.team,player:e.player,value:e.value,extra:e.extra}))
+}
+
+function disciplineRows():StatRow[] {
+  return disciplineByTeam.map(d=>({team:d.team,value:d.yellow,extra:[d.red]}))
+}
+
+function buildCards(teams:TeamStat[],playedMatches:number,totalGoals:number,highScoringMatches:number,goallessMatches:number,language:Language):StatCard[] {
+  const average=playedMatches?(totalGoals/playedMatches).toFixed(2):'0.00'
+  const highPct=playedMatches?`${((highScoringMatches/playedMatches)*100).toFixed(1)}%`:'0.0%'
+  const goallessPct=playedMatches?`${((goallessMatches/playedMatches)*100).toFixed(1)}%`:'0.0%'
+
   return [
     {
+      icon:<Trophy aria-hidden="true"/>,
+      title:{es:'Goleadores',en:'Top Scorers'},
+      columns:{es:['Goles'],en:['Goals']},
+      rows:playerRows(topScorers),
+    },
+    {
+      icon:<Handshake aria-hidden="true"/>,
+      title:{es:'Asistencias',en:'Assists'},
+      columns:{es:['Asist.'],en:['Ast.']},
+      rows:playerRows(topAssists),
+    },
+    {
+      icon:<Shield aria-hidden="true"/>,
+      title:{es:'Arqueros con más atajadas',en:'Most Saves'},
+      columns:{es:['Atajadas'],en:['Saves']},
+      rows:playerRows(topSaves),
+    },
+    {
+      icon:<ShieldCheck aria-hidden="true"/>,
+      title:{es:'Vallas invictas',en:'Clean Sheets'},
+      columns:{es:['Partidos'],en:['Matches']},
+      rows:playerRows(cleanSheetsByGK),
+    },
+    {
       icon:<Volleyball aria-hidden="true"/>,
-      title:{es:'Países con más goles',en:'Countries with most goals'},
-      rows:topRows(teams,(a,b)=>b.gf-a.gf||b.gd-a.gd,team=>team.gf),
+      title:{es:'País con más goles',en:'Most Goals'},
+      columns:{es:['Goles'],en:['Goals']},
+      rows:topTeamRows(teams,(a,b)=>b.gf-a.gf||b.gd-a.gd,team=>team.gf),
     },
     {
       icon:<Activity aria-hidden="true"/>,
-      title:{es:'Diferencia de goles',en:'Goal difference'},
-      columns:{es:['PJ','GF','GC','DG'],en:['P','GF','GA','GD']},
-      rows:topRows(teams,(a,b)=>b.gd-a.gd||b.gf-a.gf,team=>team.played,team=>[team.gf,team.ga,team.gd>0?`+${team.gd}`:team.gd]),
+      title:{es:'Diferencia de goles',en:'Goal Difference'},
+      columns:{es:['GF','GC','DG'],en:['GF','GA','GD']},
+      rows:topTeamRows(teams.filter(t=>t.played>0),(a,b)=>b.gd-a.gd||b.gf-a.gf,team=>team.gf,team=>[team.ga,team.gd>0?`+${team.gd}`:team.gd]),
     },
     {
-      icon:<Trophy aria-hidden="true"/>,
-      title:{es:'Más puntos',en:'Most points'},
-      columns:{es:['PJ','PTS'],en:['P','PTS']},
-      rows:topRows(teams,(a,b)=>b.points-a.points||b.gd-a.gd||b.gf-a.gf,team=>team.played,team=>[team.points]),
-    },
-    {
-      icon:<Goal aria-hidden="true"/>,
-      title:{es:'Más victorias',en:'Most wins'},
-      columns:{es:['PJ','G','E','P'],en:['P','W','D','L']},
-      rows:topRows(teams,(a,b)=>b.wins-a.wins||b.points-a.points||b.gd-a.gd,team=>team.played,team=>[team.wins,team.draws,team.losses]),
-    },
-    {
-      icon:<Shield aria-hidden="true"/>,
-      title:{es:'Mejor defensa',en:'Best defense'},
-      columns:{es:['PJ','GC'],en:['P','GA']},
-      rows:topRows(teams.filter(team=>team.played>0),(a,b)=>a.ga-b.ga||b.gd-a.gd||b.points-a.points,team=>team.played,team=>[team.ga]),
-    },
-    {
-      icon:<Shield aria-hidden="true"/>,
-      title:{es:'Vallas invictas',en:'Clean sheets'},
-      columns:{es:['PJ','VI'],en:['P','CS']},
-      rows:topRows(teams,(a,b)=>b.cleanSheets-a.cleanSheets||a.ga-b.ga||b.points-a.points,team=>team.played,team=>[team.cleanSheets]),
+      icon:<Target aria-hidden="true"/>,
+      title:{es:'Remates al arco',en:'Shots on Target'},
+      columns:{es:['Remates'],en:['Shots']},
+      rows:playerRows(topShots),
     },
     {
       icon:<BarChart3 aria-hidden="true"/>,
-      title:{es:'Promedio goleador',en:'Scoring average'},
-      columns:{es:['PJ','GF','Prom.'],en:['P','GF','Avg.']},
-      rows:topRows(teams.filter(team=>team.played>0),(a,b)=>(b.gf/b.played)-(a.gf/a.played)||b.gf-a.gf,team=>team.played,team=>[team.gf,(team.gf/team.played).toFixed(2)]),
+      title:{es:'Efectividad goleadora',en:'Scoring Efficiency'},
+      columns:{es:['Goles','Rem.','%'],en:['Goals','Sht.','%']},
+      rows:playerRows(topEfficiency.map(e=>({...e,value:e.extra![0] as number,extra:[e.value,e.extra![1]]}))),
     },
     {
-      icon:<Activity aria-hidden="true"/>,
-      title:{es:'Partidos con más goles',en:'Highest-scoring matches'},
-      columns:{es:['Marcador'],en:['Score']},
-      rows:[...allGroupMatches].flatMap(match=>{
-        const score=parseScore(scoreMap[match.id] ?? match.score)
-        return score ? [{team:`${match.home}__${match.away}`,value:`${score[0]}-${score[1]} · ${score[0]+score[1]}`}] : []
-      }).sort((a,b)=>Number(String(b.value).split(' · ')[1]??0)-Number(String(a.value).split(' · ')[1]??0)).slice(0,8),
+      icon:<CardsIcon/>,
+      title:{es:'Tarjetas (por selecciones)',en:'Cards (by country)'},
+      columns:{es:['Amar.','Rojas'],en:['Yellow','Red']},
+      rows:disciplineRows(),
     },
     {
-      icon:<Goal aria-hidden="true"/>,
-      title:{es:'Menos goles recibidos',en:'Fewest goals conceded'},
-      columns:{es:['PJ','GC'],en:['P','GA']},
-      rows:topRows(teams.filter(team=>team.played>0),(a,b)=>a.ga-b.ga||b.points-a.points,team=>team.played,team=>[team.ga]),
-    },
-    {
-      icon:<PercentIcon/>,
-      title:{es:'Rendimiento de puntos',en:'Points efficiency'},
-      columns:{es:['PJ','PTS','%'],en:['P','PTS','%']},
-      rows:topRows(teams.filter(team=>team.played>0),(a,b)=>(b.points/(b.played*3))-(a.points/(a.played*3))||b.points-a.points,team=>team.played,team=>[team.points,`${Math.round((team.points/(team.played*3))*100)}%`]),
+      icon:<TrendingUp aria-hidden="true"/>,
+      title:{es:'Promedio de goles por partido',en:'Goals per match'},
+      rows:[],
+      summaryRows:[
+        {icon:<Volleyball aria-hidden="true"/>,label:{es:'Total de goles',en:'Total goals'},value:totalGoals},
+        {icon:<CalendarDays aria-hidden="true"/>,label:{es:'Partidos jugados',en:'Matches played'},value:playedMatches},
+        {icon:<Activity aria-hidden="true"/>,label:{es:'Promedio por partido',en:'Goals per match'},value:average},
+        {icon:<BarChart3 aria-hidden="true"/>,label:{es:`Partidos con 3+ goles`,en:`Matches with 3+ goals`},value:`${highScoringMatches} (${highPct})`},
+        {icon:<Goal aria-hidden="true"/>,label:{es:'Partidos sin goles',en:'Goalless matches'},value:`${goallessMatches} (${goallessPct})`},
+      ],
     },
   ]
 }
 
-function PercentIcon() {
-  return <span className="percent-icon" aria-hidden="true">%</span>
+function CardsIcon() {
+  return <span className="cards-icon" aria-hidden="true"><i/><i/></span>
 }
 
 function flagUrl(team:string) {
@@ -160,15 +187,7 @@ function flagUrl(team:string) {
 }
 
 function displayName(team:string,language:Language) {
-  if(team.includes('__')){
-    const [home,away]=team.split('__')
-    return `${teamNames[home][language]} vs ${teamNames[away][language]}`
-  }
-  return teamNames[team][language]
-}
-
-function flagFor(team:string) {
-  return team.includes('__') ? team.split('__')[0] : team
+  return teamNames[team]?.[language] ?? team
 }
 
 function StatTable({card,language}:{card:StatCard;language:Language}) {
@@ -178,15 +197,29 @@ function StatTable({card,language}:{card:StatCard;language:Language}) {
       <span className="stat-icon">{card.icon}</span>
       <h2>{card.title[language]}</h2>
     </header>
-    {columns ? <div className={`stat-columns cols-${columns.length}`}>{columns.map(column=><span key={column}>{column}</span>)}</div> : null}
-    <ol className={`stat-list ${columns ? `with-extra extras-${columns.length}` : ''}`}>
-      {card.rows.map((row,index)=><li key={`${card.title.es}-${row.team}`}>
-        <span className="rank">{index+1}</span>
-        <span className="stat-name"><img src={flagUrl(flagFor(row.team))} alt=""/><b>{displayName(row.team,language)}</b></span>
-        <strong>{row.value}</strong>
-        {row.extra?.map((value,itemIndex)=><strong key={itemIndex}>{value}</strong>)}
-      </li>)}
-    </ol>
+    {card.summaryRows ? (
+      <div className="stat-summary">
+        {card.summaryRows.map((row,i)=>(
+          <div key={i} className="stat-summary-row">
+            <span className="stat-summary-icon">{row.icon}</span>
+            <span className="stat-summary-label">{row.label[language]}</span>
+            <strong>{row.value}</strong>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <>
+        {columns ? <div className={`stat-columns cols-${columns.length}`}>{columns.map(column=><span key={column}>{column}</span>)}</div> : null}
+        <ol className={`stat-list ${columns ? `with-extra extras-${columns.length}` : ''}`}>
+          {card.rows.map((row,index)=><li key={`${card.title.es}-${row.team}-${row.player??''}-${index}`}>
+            <span className="rank">{index+1}</span>
+            <span className="stat-name"><img src={flagUrl(row.team)} alt=""/><b>{row.player??displayName(row.team,language)}</b></span>
+            <strong>{row.value}</strong>
+            {row.extra?.map((value,itemIndex)=><strong key={itemIndex}>{value}</strong>)}
+          </li>)}
+        </ol>
+      </>
+    )}
   </article>
 }
 
@@ -194,9 +227,8 @@ function StatisticsApp() {
   const [language,setLanguage]=useState<Language>('es')
   const [updatedAt,setUpdatedAt]=useState(()=>new Date())
   const scoreMap=useScores()
-  const {teams,playedMatches,totalGoals,totalTeams}=useMemo(()=>buildTeamStats(scoreMap),[scoreMap])
-  const cards=useMemo(()=>buildCards(teams,scoreMap),[teams,scoreMap])
-  const average=playedMatches ? (totalGoals/playedMatches).toFixed(2) : '0.00'
+  const {teams,playedMatches,totalGoals,highScoringMatches,goallessMatches,totalTeams}=useMemo(()=>buildTeamStats(scoreMap),[scoreMap])
+  const cards=useMemo(()=>buildCards(teams,playedMatches,totalGoals,highScoringMatches,goallessMatches,language),[teams,playedMatches,totalGoals,highScoringMatches,goallessMatches,language])
   const updated=formatDateTime(updatedAt,language)
 
   useEffect(()=>{
@@ -229,13 +261,10 @@ function StatisticsApp() {
     </header>
     <main className="statistics-main">
       <section className="stats-grid">{cards.map(card=><StatTable key={card.title.es} card={card} language={language}/>)}</section>
-      <section className="summary-panel" aria-label={language==='es'?'Resumen del torneo':'Tournament summary'}>
-        <article><span className="summary-icon"><Volleyball aria-hidden="true"/></span><div><small>{language==='es'?'Resumen real':'Live summary'}</small><strong>{totalGoals}</strong><p>{language==='es'?'goles anotados':'goals scored'}</p></div></article>
-        <article><span className="summary-icon"><Goal aria-hidden="true"/></span><div><strong>{playedMatches}</strong><p>{language==='es'?'partidos jugados':'matches played'}</p></div></article>
-        <article><span className="summary-icon"><Activity aria-hidden="true"/></span><div><strong>{average}</strong><p>{language==='es'?'promedio de goles por partido':'average goals per match'}</p></div></article>
-        <article><span className="summary-icon"><Users aria-hidden="true"/></span><div><strong>{totalTeams}</strong><p>{language==='es'?'selecciones participantes':'participating teams'}</p></div></article>
-        <article><span className="summary-icon"><CalendarDays aria-hidden="true"/></span><div><small>{language==='es'?'Actualizado':'Updated'}</small><strong>{updated.dateText}</strong><p>{updated.timeText} {language==='es'?'(Hora local)':'(Local time)'}</p></div></article>
-      </section>
+      <footer className="stats-footer">
+        <span><Users aria-hidden="true"/>{totalTeams} {language==='es'?'selecciones':'teams'}</span>
+        <span>{language==='es'?'Actualizado':'Updated'}: {updated.dateText} {updated.timeText}</span>
+      </footer>
     </main>
   </div>
 }
