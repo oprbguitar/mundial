@@ -43,13 +43,22 @@ button{font:inherit}
 .standing-list strong{font-weight:800}
 .rank-state{display:inline-flex;align-items:center;justify-content:center;min-height:18px;padding:3px 7px;border-radius:5px;color:#fff;font-size:8px;font-weight:800;line-height:1;white-space:nowrap}
 .state-qualified{background:#1f8e4a}
-.state-best-third{background:#d88716}
+.state-best-third{background:#d88716;box-shadow:0 0 0 rgba(245,184,55,0);animation:best-third-glow 1.8s ease-in-out infinite}
 .state-out-of-zone{background:#576679;color:#eef4fb}
 .state-eliminated{background:#dc3538}
 .movement{color:#9fb5cf;font-style:normal;font-size:12px;font-weight:800;line-height:1}
 .movement-up{color:#27d85f}
 .movement-down{color:#ff454f}
 .movement-same{color:#f2b237}
+
+@keyframes best-third-glow{
+  0%,100%{filter:brightness(1);box-shadow:0 0 0 rgba(245,184,55,0)}
+  50%{filter:brightness(1.18);box-shadow:0 0 10px rgba(245,184,55,.42)}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .state-best-third{animation:none;box-shadow:0 0 8px rgba(245,184,55,.26)}
+}
 
 @media (min-width:1450px){
   .fixture-grid{grid-template-columns:repeat(4,minmax(280px,1fr))}
