@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useReducer, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Activity, ArrowLeft, BarChart3, CalendarDays, Goal, Handshake, Shield, ShieldCheck, Target, TrendingUp, Trophy, Users, Volleyball } from 'lucide-react'
+import { Activity, ArrowLeft, BarChart3, CalendarDays, Clock, Goal, Handshake, Shield, ShieldCheck, Target, TrendingUp, Trophy, Users, Volleyball } from 'lucide-react'
 import { allGroupMatches, flagCodes, teamNames, type Language, type Match } from './data'
 import { cleanSheetsByGK, disciplineByTeam, topAssists, topEfficiency, topSaves, topScorers, topShots } from './playerStats'
 import { getScoreSnapshot, refreshScores, subscribeToScore } from './worldcupScores'
@@ -148,7 +148,7 @@ function buildCards(teams:TeamStat[],playedMatches:number,totalGoals:number,high
     {
       icon:<Target aria-hidden="true"/>,
       title:{es:'Remates al arco',en:'Shots on Target'},
-      columns:{es:['Remates'],en:['Shots']},
+      columns:{es:['Rem.','Goles','%'],en:['Sht.','Goals','%']},
       rows:playerRows(topShots),
     },
     {
@@ -262,8 +262,28 @@ function StatisticsApp() {
     <main className="statistics-main">
       <section className="stats-grid">{cards.map(card=><StatTable key={card.title.es} card={card} language={language}/>)}</section>
       <footer className="stats-footer">
-        <span><Users aria-hidden="true"/>{totalTeams} {language==='es'?'selecciones':'teams'}</span>
-        <span>{language==='es'?'Actualizado':'Updated'}: {updated.dateText} {updated.timeText}</span>
+        <div className="stats-footer-pills">
+          <div className="footer-pill">
+            <Volleyball aria-hidden="true"/>
+            <div><strong>{totalGoals}</strong><span>{language==='es'?'Goles totales':'Total goals'}</span></div>
+          </div>
+          <div className="footer-pill">
+            <CalendarDays aria-hidden="true"/>
+            <div><strong>{playedMatches}</strong><span>{language==='es'?'Partidos jugados':'Matches played'}</span></div>
+          </div>
+          <div className="footer-pill">
+            <Activity aria-hidden="true"/>
+            <div><strong>{playedMatches?(totalGoals/playedMatches).toFixed(2):'0.00'}</strong><span>{language==='es'?'Goles/partido':'Goals/match'}</span></div>
+          </div>
+          <div className="footer-pill">
+            <Users aria-hidden="true"/>
+            <div><strong>{totalTeams}</strong><span>{language==='es'?'Selecciones':'Teams'}</span></div>
+          </div>
+        </div>
+        <div className="stats-footer-update">
+          <Clock aria-hidden="true"/>
+          {language==='es'?'Actualizado':'Updated'}: {updated.dateText} · {updated.timeText}
+        </div>
       </footer>
     </main>
   </div>
