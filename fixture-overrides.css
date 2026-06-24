@@ -1,0 +1,5 @@
+.fixture-controls label.fixture-control-compact{gap:0}
+@media(max-width:700px){
+  .fixture-controls label.fixture-control-compact{width:auto!important;display:inline-flex!important;grid-template-columns:none!important}
+  .fixture-control-compact .fixture-select,.fixture-control-compact .fixture-select select{width:auto!important}
+}
