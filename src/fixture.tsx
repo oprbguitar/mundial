@@ -113,12 +113,39 @@ function FixtureApp() {
 
   useEffect(()=>{
     let timer:number|undefined
-    const run=()=>refreshScores(allGroupMatches).then(()=>{setWarning(false);setLastUpdated(new Date())}).catch(()=>setWarning(true))
-    const start=()=>{if(timer===undefined){void run();timer=window.setInterval(run,5*60*1000)}}
+    let running=false
+    const run=async()=>{
+      if(running) return
+      running=true
+      try{
+        await refreshScores(allGroupMatches)
+        setWarning(false)
+        setLastUpdated(new Date())
+      }catch{
+        setWarning(true)
+      }finally{
+        running=false
+      }
+    }
+    const start=()=>{
+      if(document.visibilityState!=='visible') return
+      void run()
+      if(timer===undefined) timer=window.setInterval(()=>void run(),5*60*1000)
+    }
     const stop=()=>{if(timer!==undefined){window.clearInterval(timer);timer=undefined}}
     const visibility=()=>document.visibilityState==='visible'?start():stop()
-    document.addEventListener('visibilitychange',visibility);visibility()
-    return ()=>{stop();document.removeEventListener('visibilitychange',visibility)}
+    document.addEventListener('visibilitychange',visibility)
+    window.addEventListener('focus',start)
+    window.addEventListener('pageshow',start)
+    window.addEventListener('online',start)
+    start()
+    return ()=>{
+      stop()
+      document.removeEventListener('visibilitychange',visibility)
+      window.removeEventListener('focus',start)
+      window.removeEventListener('pageshow',start)
+      window.removeEventListener('online',start)
+    }
   },[])
 
   return <div className="fixture-shell">
