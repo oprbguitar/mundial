@@ -10,6 +10,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname,'index.html'),
         fixture: resolve(__dirname,'fixture.html'),
+        statistics: resolve(__dirname,'estadisticas.html'),
       },
     },
   },

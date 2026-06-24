@@ -153,7 +153,7 @@ function SupportModal({ language, onClose }: { language:Language; onClose:()=>vo
 function App() {
   const [language,setLanguage] = useState<Language>('es')
   const [zone,setZone] = useState<ZoneKey>('official')
-  const [matchday,setMatchday] = useState<Matchday>('second')
+  const [matchday,setMatchday] = useState<Matchday>('third')
   const [supportOpen,setSupportOpen] = useState(false)
   const [detailMatch,setDetailMatch] = useState<Match|null>(null)
   const t = copy[language]
@@ -178,6 +178,10 @@ function App() {
       </div>
       <div className="controls">
         <a className="fixture-btn" href="./fixture.html" target="_blank" rel="noopener" aria-label={language==='es'?'Abrir fixture':'Open fixture page'}><CalendarDays aria-hidden="true"/><span>Fixture</span></a>
+        <a className="stats-ball-link" href="./estadisticas.html" aria-label={language==='es'?'Abrir estadísticas':'Open statistics'}>
+          <span className="stats-ball" aria-hidden="true">⚽</span>
+          <span>{language==='es'?'Estadísticas':'Stats'}</span>
+        </a>
         <div className="control timezone"><label>{t.viewTime}</label><Selector value={zone} onChange={v=>setZone(v as ZoneKey)} label={t.viewTime} className="dark-select">
           {Object.entries(zones).map(([key,item])=><option key={key} value={key}>{item[language]}</option>)}
         </Selector></div>
