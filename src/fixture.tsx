@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useReducer, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { CalendarDays, ChevronDown, Clock3, Info, Trophy } from 'lucide-react'
+import { ChevronDown, Info, Trophy } from 'lucide-react'
 import { allGroupMatches, flagCodes, groupColors, matches, secondMatchday, teamNames, thirdMatchday, type Language, type Match } from './data'
 import { copy } from './i18n'
 import { getScoreSnapshot, refreshScores, subscribeToScore } from './worldcupScores'
@@ -96,14 +96,11 @@ function FixtureApp() {
   const [zone,setZone]=useState<ZoneKey>('official')
   const [matchday,setMatchday]=useState<FixtureMatchday>('second')
   const [warning,setWarning]=useState(false)
-  const [lastUpdated,setLastUpdated]=useState<Date|null>(null)
   const scoreMap=useScores()
   const t=copy[language],ft=fixtureCopy[language]
   const visible=scheduleByDay[matchday]
   const rankingMatches=allGroupMatches
   const groups=useMemo(()=>Object.values(visible.reduce<Record<string,Match[]>>((result,match)=>{(result[match.group]??=[]).push(match);return result},{})),[visible])
-  const days=visible.map(match=>Number(new Intl.DateTimeFormat('en',{day:'numeric',timeZone:zones[zone].zone}).format(new Date(match.dateTime))))
-  const range=language==='es'?`${Math.min(...days)}–${Math.max(...days)} de junio de 2026`:`June ${Math.min(...days)}–${Math.max(...days)}, 2026`
   const subtitle=({first:t.subtitleFirst,second:t.subtitleSecond,third:t.subtitleThird})[matchday]
 
   useEffect(()=>{
@@ -120,7 +117,6 @@ function FixtureApp() {
       try{
         await refreshScores(allGroupMatches)
         setWarning(false)
-        setLastUpdated(new Date())
       }catch{
         setWarning(true)
       }finally{
@@ -160,11 +156,6 @@ function FixtureApp() {
     </header>
     {warning?<div className="fixture-warning" role="status"><Info aria-hidden="true"/>{ft.warning}</div>:null}
     <main className="fixture-main"><section className="fixture-grid">{groups.map(group=><GroupFixtureCard key={group[0].group} group={group[0].group} rankingMatches={rankingMatches} scoreMap={scoreMap} language={language}/>)}</section></main>
-    <footer className="fixture-footer">
-      <div><Clock3 aria-hidden="true"/><span>{t.timePrefix}<strong>{t.localTime} ({zones[zone][language]})</strong></span></div>
-      <div><CalendarDays aria-hidden="true"/><span>{t.dates}<strong>{range}</strong></span></div>
-      <div className="fixture-live"><i></i><span>{t.follow}<strong>{t.more}</strong>{lastUpdated?<small>{ft.updated}: {lastUpdated.toLocaleTimeString(language==='es'?'es-PE':'en-US',{hour:'2-digit',minute:'2-digit'})}</small>:null}</span></div>
-    </footer>
   </div>
 }
 
