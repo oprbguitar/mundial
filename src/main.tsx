@@ -72,10 +72,10 @@ const simulationCopy = {
   es: {
     title:'Predicción de cruces',
     legend:'Simulación no oficial basada en los datos actuales.',
-    projected:'Cruces proyectados',
     simulate:'Simular resultados pendientes',
     impact:'Impacto en clasificación',
     recalculate:'Recalcular simulación',
+    random:'Generar al azar',
     disclaimer:'Esta simulación es referencial. Los cruces oficiales se confirman al finalizar la fase de grupos.',
     noPending:'No hay partidos pendientes para simular.',
     qualified:'Clasificados',
@@ -85,17 +85,16 @@ const simulationCopy = {
     pending:'PENDIENTE',
     simulated:'SIMULADO',
     confirmedLegend:'Cruce definido con equipos ya clasificados.',
-    projectionLegend:'Cruce probable según los resultados actuales.',
     pendingLegend:'Depende de partidos o posiciones aún no definidas.',
     simulatedLegend:'Resultado calculado con los marcadores ingresados por el usuario.',
   },
   en: {
     title:'Matchup prediction',
     legend:'Unofficial simulation based on current data.',
-    projected:'Projected matchups',
     simulate:'Simulate pending results',
     impact:'Qualification impact',
     recalculate:'Recalculate simulation',
+    random:'Generate random',
     disclaimer:'This simulation is a reference. Official matchups are confirmed after the group stage ends.',
     noPending:'There are no pending matches to simulate.',
     qualified:'Qualified teams',
@@ -105,7 +104,6 @@ const simulationCopy = {
     pending:'PENDING',
     simulated:'SIMULATED',
     confirmedLegend:'Matchup defined with already qualified teams.',
-    projectionLegend:'Likely matchup based on current results.',
     pendingLegend:'Depends on matches or positions not yet defined.',
     simulatedLegend:'Result calculated with scores entered by the user.',
   },
@@ -416,7 +414,7 @@ function PendingMatchInput({match,language,zone,value,onChange}:{match:Match;lan
   </article>
 }
 
-function SimulationSection({language,zone,realScoreMap,projectedScoreMap,standings,simulationDraft,onDraftChange,onRecalculate,simulatedIds}:{language:Language;zone:ZoneKey;realScoreMap:ScoreMap;projectedScoreMap:ScoreMap;standings:GroupStandings;simulationDraft:Record<string,{home:string;away:string}>;onDraftChange:(matchId:string,value:{home:string;away:string})=>void;onRecalculate:()=>void;simulatedIds:Set<string>}) {
+function SimulationSection({language,zone,realScoreMap,standings,simulationDraft,onDraftChange,onRecalculate,onRandomize}:{language:Language;zone:ZoneKey;realScoreMap:ScoreMap;standings:GroupStandings;simulationDraft:Record<string,{home:string;away:string}>;onDraftChange:(matchId:string,value:{home:string;away:string})=>void;onRecalculate:()=>void;onRandomize:()=>void}) {
   const t=simulationCopy[language]
   const pendingMatches=allGroupMatches.filter(match=>!hasRealScore(match,realScoreMap))
   const thirds=projectedThirds(standings)
@@ -427,24 +425,16 @@ function SimulationSection({language,zone,realScoreMap,projectedScoreMap,standin
       <p>{t.legend}</p>
     </header>
 
-    <div className="simulation-status-legend">
-      {(['confirmed','projection','pending','simulated'] as SimulationStatus[]).map(status=><p key={status}><SimulationBadge status={status} language={language}/><span>{status==='confirmed'?t.confirmedLegend:status==='projection'?t.projectionLegend:status==='pending'?t.pendingLegend:t.simulatedLegend}</span></p>)}
-    </div>
-
     <div className="simulation-layout">
-      <section className="simulation-panel simulation-matchups">
-        <h3>{t.projected}</h3>
-        <div className="simulation-card-grid">
-          {round32Slots.map(match=><SimulationMatchCard key={match.num} match={match} language={language} zone={zone} standings={standings} scoreMap={projectedScoreMap} simulatedIds={simulatedIds}/>)}
-        </div>
-      </section>
-
       <aside className="simulation-panel simulation-form-panel">
         <h3>{t.simulate}</h3>
         <div className="simulation-input-list">
           {pendingMatches.length ? pendingMatches.map(match=><PendingMatchInput key={match.id} match={match} language={language} zone={zone} value={simulationDraft[match.id] ?? {home:'',away:''}} onChange={value=>onDraftChange(match.id,value)}/>) : <p className="simulation-empty">{t.noPending}</p>}
         </div>
-        <button className="simulation-recalculate" type="button" onClick={onRecalculate}>{t.recalculate}</button>
+        <div className="simulation-actions">
+          <button className="simulation-random" type="button" onClick={onRandomize}>{t.random}</button>
+          <button className="simulation-recalculate" type="button" onClick={onRecalculate}>{t.recalculate}</button>
+        </div>
       </aside>
 
       <aside className="simulation-panel simulation-impact">
@@ -530,7 +520,6 @@ function App() {
   const visible = useMemo(()=>matchdayOptions.find(option=>option.key===matchday)?.matches ?? thirdMatchday,[matchday])
   const groups = useMemo(()=>Object.values(visible.reduce<Record<string,Match[]>>((acc,match)=>{(acc[match.group]??=[]).push(match); return acc},{})),[visible])
   const standings = useMemo(()=>calculateStandings(scoreMap,language),[scoreMap,language])
-  const simulatedIds = useMemo(()=>simulatedMatchIds(scoreMap,simulationScores),[scoreMap,simulationScores])
   const projectedScoreMap = useMemo(()=>mergeSimulationScores(scoreMap,simulationScores),[scoreMap,simulationScores])
   const projectedStandings = useMemo(()=>calculateStandings(projectedScoreMap,language),[projectedScoreMap,language])
   const hasLiveMatches = allGroupMatches.some(match=>getMatchStatus(match,scoreMap[match.id],now)==='live')
@@ -548,6 +537,15 @@ function App() {
       if (scoreMap[matchId] || value.home==='' || value.away==='') return []
       return [[matchId,`${Number(value.home)}-${Number(value.away)}`]]
     })) as ScoreMap
+    setSimulationScores(simulated)
+    setSection('simulation')
+  }
+  const randomGoal=()=>Math.random()<.08 ? 4 : Math.random()<.25 ? 3 : Math.floor(Math.random()*3)
+  const randomizeSimulation=()=>{
+    const pending=allGroupMatches.filter(match=>!hasRealScore(match,scoreMap))
+    const draft=Object.fromEntries(pending.map(match=>[match.id,{home:String(randomGoal()),away:String(randomGoal())}]))
+    const simulated=Object.fromEntries(Object.entries(draft).map(([matchId,value])=>[matchId,`${Number(value.home)}-${Number(value.away)}`])) as ScoreMap
+    setSimulationDraft(draft)
     setSimulationScores(simulated)
     setSection('simulation')
   }
@@ -596,7 +594,7 @@ function App() {
         <div className="groups-grid standings-grid">{Object.entries(standings).map(([group,rows])=><StandingGroupCard key={group} group={group} standings={rows} language={language}/>)}</div>
       </section> : null}
       {section==='knockout' ? <KnockoutSection language={language} zone={zone} standings={standings} scoreMap={scoreMap}/> : null}
-      {section==='simulation' ? <SimulationSection language={language} zone={zone} realScoreMap={scoreMap} projectedScoreMap={projectedScoreMap} standings={projectedStandings} simulationDraft={simulationDraft} onDraftChange={updateSimulationDraft} onRecalculate={recalculateSimulation} simulatedIds={simulatedIds}/> : null}
+      {section==='simulation' ? <SimulationSection language={language} zone={zone} realScoreMap={scoreMap} standings={projectedStandings} simulationDraft={simulationDraft} onDraftChange={updateSimulationDraft} onRecalculate={recalculateSimulation} onRandomize={randomizeSimulation}/> : null}
     </main>
 
     <footer className="bottom-panel">

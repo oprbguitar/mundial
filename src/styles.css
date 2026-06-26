@@ -54,3 +54,21 @@ main{min-height:0;padding:0 15px 10px;display:grid;grid-template-rows:48px 1fr}.
 @media (max-width:700px){.section-nav{width:100%;height:auto}.section-nav button{flex:1;min-height:38px;padding-inline:6px}.simulation-nav-button b{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.matchday-nav{align-self:flex-start}.language-globe{position:absolute;top:16px;right:64px}.timezone{display:flex;justify-content:space-between}.timezone span{display:inline}.timezone select{width:100%}.standings-section,.knockout-section,.simulation-section{display:block}.standings-note,.standings-legend,.section-title,.simulation-status-legend,.simulation-panel{margin-bottom:10px}.standings-grid,.round32-grid{overflow:visible}.simulation-status-legend{grid-template-columns:1fr}.simulation-card-grid{grid-template-columns:1fr}.standing-head,.standing-list li{grid-template-columns:minmax(0,1fr) 24px 28px 30px 76px;gap:3px}.standing-list li{font-size:11px}.standing-row small{font-size:7px;padding-inline:4px}.ko-team{min-height:50px}.bottom-panel{grid-template-columns:1fr}.follow{border-bottom:0}.match-time small{display:none}}
 @media (max-width:400px){.matchday-nav button{width:34px}.standing-team{grid-template-columns:15px 20px minmax(0,1fr);gap:4px}.standing-team img{width:20px;height:13px}.standing-head,.standing-list li{grid-template-columns:minmax(0,1fr) 22px 25px 27px 66px}.ko-team b{font-size:12px}.third-ranking li{grid-template-columns:48px minmax(0,1fr)}.third-ranking em{grid-column:2}}
 @media (prefers-reduced-motion:reduce){.matchday-nav button.current,.simulation-nav-button span{animation:none!important;box-shadow:inset 0 0 0 1px #f4b23e;filter:drop-shadow(0 0 5px #ffd34f)}}
+
+.simulation-section{grid-template-rows:auto minmax(0,1fr) auto}
+.simulation-layout{grid-template-columns:minmax(320px,.9fr) minmax(0,1.1fr);grid-template-rows:minmax(0,1fr)}
+.simulation-form-panel{max-height:none;min-height:0}
+.simulation-input-list{max-height:520px}
+.simulation-actions{display:grid;grid-template-columns:1fr 1.2fr;gap:8px;margin-top:9px}
+.simulation-actions button{height:40px;border-radius:9px;font-size:13px;font-weight:800}
+.simulation-random{border:1px solid #d4d9e8;background:#fff;color:#0a285e}
+.simulation-random:hover{background:#edf4ff}
+.simulation-impact{align-content:start}
+
+@media (max-width:1100px){
+  .simulation-layout{grid-template-columns:1fr}
+  .simulation-input-list{max-height:none}
+}
+@media (max-width:700px){
+  .simulation-actions{grid-template-columns:1fr}
+}
