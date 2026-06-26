@@ -145,6 +145,16 @@ export function startScoreRefresh(fixtures:Match[]) {
   const start=()=>{if(timer===undefined){refresh();timer=window.setInterval(refresh,REFRESH_INTERVAL)}}
   const stop=()=>{if(timer!==undefined){window.clearInterval(timer);timer=undefined}}
   const visibility=()=>document.visibilityState==='visible'?start():stop()
-  document.addEventListener('visibilitychange',visibility);visibility()
-  return ()=>{disposed=true;stop();document.removeEventListener('visibilitychange',visibility)}
+  document.addEventListener('visibilitychange',visibility)
+  window.addEventListener('focus',refresh)
+  window.addEventListener('pageshow',refresh)
+  window.addEventListener('online',refresh)
+  visibility()
+  return ()=>{
+    disposed=true;stop()
+    document.removeEventListener('visibilitychange',visibility)
+    window.removeEventListener('focus',refresh)
+    window.removeEventListener('pageshow',refresh)
+    window.removeEventListener('online',refresh)
+  }
 }

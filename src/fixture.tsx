@@ -178,7 +178,7 @@ function FixtureApp() {
 
   useEffect(()=>{
     document.documentElement.lang=language
-    document.title=`Fixture · ${t.title}`
+    document.title=language==='es' ? 'Posiciones · Partidos 2026' : 'Standings · Matches 2026'
   },[language,t.title])
 
   useEffect(()=>{
