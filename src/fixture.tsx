@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { Info, Trophy } from 'lucide-react'
 import { allGroupMatches, flagCodes, groupColors, teamNames, type Language, type Match } from './data'
 import { copy } from './i18n'
-import { getScoreSnapshot, refreshScores, subscribeToScore } from './worldcupScores'
+import { getFinalScoreSnapshot, refreshScores, subscribeToScore } from './worldcupScores'
 import './fixture.css'
 
 type ScoreMap = Record<string,string|null>
@@ -42,7 +42,7 @@ const fixtureCopy = {
 } as const
 
 function readScores(fixtures:Match[]):ScoreMap {
-  return Object.fromEntries(fixtures.map(match=>[match.id,getScoreSnapshot(match.id)??match.score]))
+  return Object.fromEntries(fixtures.map(match=>[match.id,getFinalScoreSnapshot(match)??null]))
 }
 
 function useScores() {

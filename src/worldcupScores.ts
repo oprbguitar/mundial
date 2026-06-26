@@ -1,8 +1,8 @@
-import type { Match } from './data'
+import type { Match, Status } from './data'
 
 const REMOTE_DATA_URL = 'https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json'
 const CACHE_KEY = 'partidos-2026-scores'
-const CACHE_VERSION = 'scores-v4'
+const CACHE_VERSION = 'scores-v5'
 const CACHE_TTL = 60 * 60 * 1000
 const REFRESH_INTERVAL = 5 * 60 * 1000
 const FETCH_TIMEOUT = 5 * 1000
@@ -37,17 +37,30 @@ interface SourceMatch {
   team1?: string
   team2?: string
   status?: string
-  score?: { ft?: [number,number] }
+  score?: { ft?: [number,number]; current?: [number,number]; live?: [number,number] }
 }
 interface OpenFootballData { matches?:SourceMatch[] }
 interface ScoreOverride { homeTeamId:string; awayTeamId:string; group:string; date?:string; score?:string|null; status?:string; source?:string }
-interface ScoreUpdate { score?:string; status?:'finished' }
-interface ScoreCache { version:string; savedAt:number; scores:Record<string,string> }
+interface ScoreUpdate { score?:string; status?:Status }
+interface ScoreCache { version:string; savedAt:number; scores:Record<string,string>; statuses?:Record<string,Status> }
 
-const scores:Record<string,string> = readCachedScores() ?? {}
+const cachedState = readCachedState()
+const scores:Record<string,string> = cachedState?.scores ?? {}
+const statuses:Record<string,Status> = cachedState?.statuses ?? {}
 const listeners = new Map<string,Set<()=>void>>()
 
 function fixtureKey(homeTeamId:string,awayTeamId:string,group:string,date:string) { return `${homeTeamId}|${awayTeamId}|${normalizeGroup(group)}|${date}` }
+
+function normalizeStatus(status:string|undefined):Status|undefined {
+  const value=normalize(status ?? '')
+  if (/^(final|ft|fulltime|complete|completed|finished)$/.test(value)) return 'finished'
+  if (/^(live|inplay|playing|halftime|ht|1sthalf|2ndhalf)$/.test(value)) return 'live'
+  return undefined
+}
+
+function scoreTuple(value:[number,number]|undefined) {
+  return value && value.length===2 && value.every(Number.isFinite) ? `${value[0]}-${value[1]}` : undefined
+}
 
 function indexSource(data:OpenFootballData) {
   const index=new Map<string,ScoreUpdate>()
@@ -55,10 +68,12 @@ function indexSource(data:OpenFootballData) {
     if (!match.group || !match.date || !match.team1 || !match.team2) continue
     const homeTeamId=resolveTeamId(match.team1),awayTeamId=resolveTeamId(match.team2)
     if (!homeTeamId || !awayTeamId) continue
-    const ft=match.score?.ft
-    const score=ft && ft.length===2 && ft.every(Number.isFinite) ? `${ft[0]}-${ft[1]}` : undefined
-    const finished=score || /finished|final|full.?time|ft/i.test(match.status ?? '') ? 'finished' as const : undefined
-    if (score || finished) index.set(fixtureKey(homeTeamId,awayTeamId,match.group,match.date),{score,status:finished})
+    const status=normalizeStatus(match.status)
+    const finalScore=scoreTuple(match.score?.ft)
+    const liveScore=scoreTuple(match.score?.current ?? match.score?.live)
+    const score=status==='finished' ? finalScore : liveScore ?? finalScore
+    const finalStatus=finalScore ? 'finished' : status
+    if (score || finalStatus) index.set(fixtureKey(homeTeamId,awayTeamId,match.group,match.date),{score,status:finalStatus})
   }
   return index
 }
@@ -83,24 +98,30 @@ function adaptOverrides(overrides:ScoreOverride[],fixtures:Match[]) {
   for (const item of overrides) {
     if (!item.homeTeamId || !item.awayTeamId || !item.group || !item.score) continue
     const date=item.date ?? fixtures.find(fixture=>resolveTeamId(fixture.home)===item.homeTeamId&&resolveTeamId(fixture.away)===item.awayTeamId&&normalizeGroup(fixture.group)===normalizeGroup(item.group))?.dateTime.slice(0,10)
-    if (date) index.set(fixtureKey(item.homeTeamId,item.awayTeamId,item.group,date),{score:item.score,status:/finished|final/i.test(item.status ?? '')?'finished':undefined})
+    if (date) index.set(fixtureKey(item.homeTeamId,item.awayTeamId,item.group,date),{score:item.score,status:normalizeStatus(item.status)})
   }
   return index
 }
 
 export function adaptOpenFootballScores(data:OpenFootballData,fixtures:Match[]) {
   const index=indexSource(data)
-  return Object.fromEntries(fixtures.flatMap(fixture=>{const update=findUpdate(index,fixture);return update?.score?[[fixture.id,update.score]]:[]}))
+  return Object.fromEntries(fixtures.flatMap(fixture=>{const update=findUpdate(index,fixture);return update?.score&&update.status==='finished'?[[fixture.id,update.score]]:[]}))
 }
 
-export function readCachedScores() {
+export function readCachedState() {
   try {
     const cached=JSON.parse(localStorage.getItem(CACHE_KEY) ?? '') as ScoreCache
-    return cached.version===CACHE_VERSION && Date.now()-cached.savedAt<=CACHE_TTL ? cached.scores : null
+    return cached.version===CACHE_VERSION && Date.now()-cached.savedAt<=CACHE_TTL ? {scores:cached.scores ?? {},statuses:cached.statuses ?? {}} : null
   } catch { return null }
 }
 
+export function readCachedScores() { return readCachedState()?.scores ?? null }
 export function getScoreSnapshot(matchId:string) { return scores[matchId] }
+export function getStatusSnapshot(matchId:string) { return statuses[matchId] }
+export function getFinalScoreSnapshot(match:Match) {
+  if ((statuses[match.id] ?? match.status)==='finished') return scores[match.id] ?? match.score
+  return match.status==='finished' ? match.score : undefined
+}
 export function subscribeToScore(matchId:string,listener:()=>void) {
   const set=listeners.get(matchId) ?? new Set<()=>void>();set.add(listener);listeners.set(matchId,set)
   return ()=>{set.delete(listener);if(!set.size)listeners.delete(matchId)}
@@ -130,10 +151,14 @@ export async function refreshScores(fixtures:Match[]) {
   const sourceIndexes=[localIndex,remoteData ? indexSource(remoteData) : null].filter(Boolean) as Map<string,ScoreUpdate>[]
   const overrideIndex=adaptOverrides(overrides,fixtures),changed:string[]=[]
   for (const fixture of fixtures) {
-    const update=findUpdate(overrideIndex,fixture) ?? sourceIndexes.map(index=>findUpdate(index,fixture)).find(item=>item?.score)
-    if (update?.score && scores[fixture.id]!==update.score) { scores[fixture.id]=update.score;changed.push(fixture.id) }
+    const update=findUpdate(overrideIndex,fixture) ?? sourceIndexes.map(index=>findUpdate(index,fixture)).find(item=>item?.score||item?.status)
+    if (!update) continue
+    let changedThis=false
+    if (update.score && scores[fixture.id]!==update.score) { scores[fixture.id]=update.score;changedThis=true }
+    if (update.status && statuses[fixture.id]!==update.status) { statuses[fixture.id]=update.status;changedThis=true }
+    if (changedThis) changed.push(fixture.id)
   }
-  try { localStorage.setItem(CACHE_KEY,JSON.stringify({version:CACHE_VERSION,savedAt:Date.now(),scores} satisfies ScoreCache)) } catch {}
+  try { localStorage.setItem(CACHE_KEY,JSON.stringify({version:CACHE_VERSION,savedAt:Date.now(),scores,statuses} satisfies ScoreCache)) } catch {}
   changed.forEach(matchId=>listeners.get(matchId)?.forEach(listener=>listener()))
   if (sourceUnavailable) throw new Error('Score source unavailable')
   return changed

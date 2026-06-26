@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { Activity, ArrowLeft, BarChart3, CalendarDays, Clock, Globe2, Goal, Handshake, Shield, ShieldCheck, Target, TrendingUp, Trophy, Users, Volleyball } from 'lucide-react'
 import { allGroupMatches, flagCodes, teamNames, type Language, type Match } from './data'
 import { cleanSheetsByGK, disciplineByTeam, topAssists, topEfficiency, topSaves, topScorers, topShots } from './playerStats'
-import { getScoreSnapshot, startScoreRefresh, subscribeToScore } from './worldcupScores'
+import { getFinalScoreSnapshot, startScoreRefresh, subscribeToScore } from './worldcupScores'
 import './statistics.css'
 
 type ScoreMap = Record<string,string|null>
@@ -39,7 +39,7 @@ type StatCard = {
 }
 
 function readScores(fixtures:Match[]):ScoreMap {
-  return Object.fromEntries(fixtures.map(match=>[match.id,getScoreSnapshot(match.id)??match.score]))
+  return Object.fromEntries(fixtures.map(match=>[match.id,getFinalScoreSnapshot(match)??null]))
 }
 
 function useScores() {

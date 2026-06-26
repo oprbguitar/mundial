@@ -3,7 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { BarChart3, CalendarDays, Clock3, Globe2, Info, MapPin, Trophy } from 'lucide-react'
 import { allGroupMatches, flagCodes, groupColors, matches, secondMatchday, teamNames, thirdMatchday, type Language, type Match, type Matchday } from './data'
 import { copy } from './i18n'
-import { getScoreSnapshot, startScoreRefresh, subscribeToScore } from './worldcupScores'
+import { getFinalScoreSnapshot, getScoreSnapshot, getStatusSnapshot, startScoreRefresh, subscribeToScore } from './worldcupScores'
 import { getMatchStatus, getMinuteSnapshot, subscribeToMinute } from './matchStatus'
 import { MatchDetailsModal } from './MatchDetailsModal'
 import './styles.css'
@@ -40,14 +40,14 @@ const standingsCopy = {
   es: {
     legend:'PJ = partidos jugados · DG = diferencia de goles · PTS = puntos',
     played:'PJ', difference:'DG', points:'PTS',
-    qualified:'Clasificado', bestThird:'Mejor 3.º posible', outOfZone:'3.º fuera de zona', eliminated:'Eliminado',
-    provisional:'Posiciones provisionales durante partidos en juego.',
+    qualified:'Clasifica a Eliminatoria de 32', bestThird:'Clasifica a Eliminatoria de 32', outOfZone:'Depende de otros resultados', eliminated:'Sin opción de clasificación',
+    provisional:'En vivo · clasificación provisional · Tabla sujeta al resultado final.',
   },
   en: {
     legend:'P = played · GD = goal difference · PTS = points',
     played:'P', difference:'GD', points:'PTS',
-    qualified:'Qualified', bestThird:'Possible best 3rd', outOfZone:'3rd out of zone', eliminated:'Eliminated',
-    provisional:'Provisional standings while matches are live.',
+    qualified:'Qualified for Round of 32', bestThird:'Qualified for Round of 32', outOfZone:'Depends on other results', eliminated:'No qualification chance',
+    provisional:'Live · provisional classification · Table subject to final result.',
   },
 } as const
 
@@ -128,13 +128,13 @@ const round32Slots = [
   {num:88,date:'2026-07-03T13:00:00-05:00',city:'Dallas (Arlington)',home:'2D',away:'2G'},
 ] as const
 
-function useScores() {
+function useScores(finalOnly=false) {
   const [,bump]=useReducer((value:number)=>value+1,0)
   useEffect(()=>{
     const unsubscribers=allGroupMatches.map(match=>subscribeToScore(match.id,bump))
     return ()=>unsubscribers.forEach(unsubscribe=>unsubscribe())
   },[])
-  return Object.fromEntries(allGroupMatches.map(match=>[match.id,getScoreSnapshot(match.id) ?? match.score])) as ScoreMap
+  return Object.fromEntries(allGroupMatches.map(match=>[match.id,finalOnly ? getFinalScoreSnapshot(match) ?? null : getScoreSnapshot(match.id) ?? match.score])) as ScoreMap
 }
 
 function dateParts(match: Match | {dateTime:string}, zone: ZoneKey, language: Language) {
@@ -180,7 +180,7 @@ function groupComplete(group:string,scoreMap:ScoreMap) {
 }
 
 function hasRealScore(match:Match,scoreMap:ScoreMap) {
-  return Boolean(parseScore(getScoreSnapshot(match.id) ?? match.score ?? scoreMap[match.id]))
+  return Boolean(parseScore(scoreMap[match.id] ?? getFinalScoreSnapshot(match)))
 }
 
 function calculateStandings(scoreMap:ScoreMap,language:Language):GroupStandings {
@@ -247,7 +247,7 @@ function projectedThirds(standings:GroupStandings) {
 }
 
 function getCurrentMatchday(now:number) {
-  const active=matchdayOptions.find(option=>option.matches.some(match=>getMatchStatus(match,getScoreSnapshot(match.id) ?? match.score,now)==='live'))
+  const active=matchdayOptions.find(option=>option.matches.some(match=>getMatchStatus(match,getScoreSnapshot(match.id) ?? match.score,now,getStatusSnapshot(match.id))==='live'))
   if (active) return active.key
   return matchdayOptions.find(option=>{
     const first=Math.min(...option.matches.map(match=>new Date(match.dateTime).getTime()))
@@ -258,7 +258,7 @@ function getCurrentMatchday(now:number) {
 
 function MatchStatusDot({ match, score, language }: { match:Match; score:string|null|undefined; language:Language }) {
   const now = useSyncExternalStore(subscribeToMinute,getMinuteSnapshot,getMinuteSnapshot)
-  const status = getMatchStatus(match,score,now)
+  const status = getMatchStatus(match,score,now,getStatusSnapshot(match.id))
   return <span className={`status-dot ${status}`} aria-label={copy[language][status]} />
 }
 
@@ -414,7 +414,7 @@ function PendingMatchInput({match,language,zone,value,onChange}:{match:Match;lan
   </article>
 }
 
-function SimulationSection({language,zone,realScoreMap,standings,simulationDraft,onDraftChange,onRecalculate,onRandomize}:{language:Language;zone:ZoneKey;realScoreMap:ScoreMap;standings:GroupStandings;simulationDraft:Record<string,{home:string;away:string}>;onDraftChange:(matchId:string,value:{home:string;away:string})=>void;onRecalculate:()=>void;onRandomize:()=>void}) {
+function SimulationSection({language,zone,realScoreMap,standings,simulationDraft,onDraftChange,onRecalculate,onRandomize,provisional}:{language:Language;zone:ZoneKey;realScoreMap:ScoreMap;standings:GroupStandings;simulationDraft:Record<string,{home:string;away:string}>;onDraftChange:(matchId:string,value:{home:string;away:string})=>void;onRecalculate:()=>void;onRandomize:()=>void;provisional:boolean}) {
   const t=simulationCopy[language]
   const pendingMatches=allGroupMatches.filter(match=>!hasRealScore(match,realScoreMap))
   const thirds=projectedThirds(standings)
@@ -424,6 +424,7 @@ function SimulationSection({language,zone,realScoreMap,standings,simulationDraft
       <h2>{t.title}</h2>
       <p>{t.legend}</p>
     </header>
+    {provisional ? <p className="standings-note"><Info aria-hidden="true"/>{standingsCopy[language].provisional}</p> : null}
 
     <div className="simulation-layout">
       <aside className="simulation-panel simulation-form-panel">
@@ -513,7 +514,8 @@ function App() {
   const [supportOpen,setSupportOpen] = useState(false)
   const [detailMatch,setDetailMatch] = useState<Match|null>(null)
   const now = useSyncExternalStore(subscribeToMinute,getMinuteSnapshot,getMinuteSnapshot)
-  const scoreMap = useScores()
+  const displayScoreMap = useScores()
+  const scoreMap = useScores(true)
   const t = copy[language]
   const labels = sectionLabels[language]
   const currentMatchday = getCurrentMatchday(now)
@@ -522,7 +524,7 @@ function App() {
   const standings = useMemo(()=>calculateStandings(scoreMap,language),[scoreMap,language])
   const projectedScoreMap = useMemo(()=>mergeSimulationScores(scoreMap,simulationScores),[scoreMap,simulationScores])
   const projectedStandings = useMemo(()=>calculateStandings(projectedScoreMap,language),[projectedScoreMap,language])
-  const hasLiveMatches = allGroupMatches.some(match=>getMatchStatus(match,scoreMap[match.id],now)==='live')
+  const hasLiveMatches = allGroupMatches.some(match=>getMatchStatus(match,displayScoreMap[match.id],now,getStatusSnapshot(match.id))==='live')
   const range = useMemo(()=>{
     const days = visible.map(match=>Number(dateParts(match,zone,language).day))
     const min=Math.min(...days), max=Math.max(...days)
@@ -594,7 +596,7 @@ function App() {
         <div className="groups-grid standings-grid">{Object.entries(standings).map(([group,rows])=><StandingGroupCard key={group} group={group} standings={rows} language={language}/>)}</div>
       </section> : null}
       {section==='knockout' ? <KnockoutSection language={language} zone={zone} standings={standings} scoreMap={scoreMap}/> : null}
-      {section==='simulation' ? <SimulationSection language={language} zone={zone} realScoreMap={scoreMap} standings={projectedStandings} simulationDraft={simulationDraft} onDraftChange={updateSimulationDraft} onRecalculate={recalculateSimulation} onRandomize={randomizeSimulation}/> : null}
+      {section==='simulation' ? <SimulationSection language={language} zone={zone} realScoreMap={scoreMap} standings={projectedStandings} simulationDraft={simulationDraft} onDraftChange={updateSimulationDraft} onRecalculate={recalculateSimulation} onRandomize={randomizeSimulation} provisional={hasLiveMatches}/> : null}
     </main>
 
     <footer className="bottom-panel">
