@@ -17,12 +17,13 @@ const zones = {
   europe: { zone: 'Europe/Madrid', es: 'Europa', en: 'Europe' },
 } as const
 type ZoneKey = keyof typeof zones
-type SectionKey = 'matches' | 'standings' | 'knockout'
+type SectionKey = 'matches' | 'standings' | 'knockout' | 'simulation'
 type ScoreMap = Record<string,string|null>
 type TeamStatus = 'qualified' | 'best-third' | 'out-of-zone' | 'eliminated'
 type Standing = {team:string;played:number;gf:number;ga:number;gd:number;points:number}
 type RankedStanding = Standing & {rank:number;group:string;status:TeamStatus}
 type GroupStandings = Record<string,RankedStanding[]>
+type SimulationStatus = 'confirmed' | 'projection' | 'pending' | 'simulated'
 
 const matchdayOptions: {key:Exclude<Matchday,'knockout'>; label:string; matches:Match[]}[] = [
   { key:'first', label:'1°', matches },
@@ -31,8 +32,8 @@ const matchdayOptions: {key:Exclude<Matchday,'knockout'>; label:string; matches:
 ]
 
 const sectionLabels = {
-  es: { matches:'Partidos', standings:'Posiciones', knockout:'Eliminatorias' },
-  en: { matches:'Matches', standings:'Standings', knockout:'Knockout' },
+  es: { matches:'Partidos', standings:'Posiciones', knockout:'Eliminatorias', simulation:'Simulación' },
+  en: { matches:'Matches', standings:'Standings', knockout:'Knockout', simulation:'Simulation' },
 } satisfies Record<Language,Record<SectionKey,string>>
 
 const standingsCopy = {
@@ -64,6 +65,49 @@ const knockoutCopy = {
     subtitle:'also known as the round of 32',
     pending:'To be decided',
     bestThirdPending:'Best 3rd pending',
+  },
+} as const
+
+const simulationCopy = {
+  es: {
+    title:'Predicción de cruces',
+    legend:'Simulación no oficial basada en los datos actuales.',
+    projected:'Cruces proyectados',
+    simulate:'Simular resultados pendientes',
+    impact:'Impacto en clasificación',
+    recalculate:'Recalcular simulación',
+    disclaimer:'Esta simulación es referencial. Los cruces oficiales se confirman al finalizar la fase de grupos.',
+    noPending:'No hay partidos pendientes para simular.',
+    qualified:'Clasificados',
+    bestThirds:'Mejores terceros',
+    confirmed:'CONFIRMADO',
+    projection:'PROYECCIÓN',
+    pending:'PENDIENTE',
+    simulated:'SIMULADO',
+    confirmedLegend:'Cruce definido con equipos ya clasificados.',
+    projectionLegend:'Cruce probable según los resultados actuales.',
+    pendingLegend:'Depende de partidos o posiciones aún no definidas.',
+    simulatedLegend:'Resultado calculado con los marcadores ingresados por el usuario.',
+  },
+  en: {
+    title:'Matchup prediction',
+    legend:'Unofficial simulation based on current data.',
+    projected:'Projected matchups',
+    simulate:'Simulate pending results',
+    impact:'Qualification impact',
+    recalculate:'Recalculate simulation',
+    disclaimer:'This simulation is a reference. Official matchups are confirmed after the group stage ends.',
+    noPending:'There are no pending matches to simulate.',
+    qualified:'Qualified teams',
+    bestThirds:'Best third-place teams',
+    confirmed:'CONFIRMED',
+    projection:'PROJECTION',
+    pending:'PENDING',
+    simulated:'SIMULATED',
+    confirmedLegend:'Matchup defined with already qualified teams.',
+    projectionLegend:'Likely matchup based on current results.',
+    pendingLegend:'Depends on matches or positions not yet defined.',
+    simulatedLegend:'Result calculated with scores entered by the user.',
   },
 } as const
 
@@ -137,6 +181,10 @@ function groupComplete(group:string,scoreMap:ScoreMap) {
   return allGroupMatches.filter(match=>match.group===group).every(match=>Boolean(parseScore(scoreMap[match.id])))
 }
 
+function hasRealScore(match:Match,scoreMap:ScoreMap) {
+  return Boolean(parseScore(getScoreSnapshot(match.id) ?? match.score ?? scoreMap[match.id]))
+}
+
 function calculateStandings(scoreMap:ScoreMap,language:Language):GroupStandings {
   const groupLetters=[...new Set(allGroupMatches.map(match=>match.group))].sort()
   const base=Object.fromEntries(groupLetters.map(group=>[group,standingsFor(group,scoreMap,language)]))
@@ -146,6 +194,58 @@ function calculateStandings(scoreMap:ScoreMap,language:Language):GroupStandings 
     const status:TeamStatus = rank<3 ? 'qualified' : rank===3 ? bestThirdTeams.has(row.team) ? 'best-third' : 'out-of-zone' : 'eliminated'
     return {...row,rank,group,status}
   })]))
+}
+
+function mergeSimulationScores(scoreMap:ScoreMap,simulationScores:ScoreMap):ScoreMap {
+  return Object.fromEntries(allGroupMatches.map(match=>[match.id,scoreMap[match.id] ?? simulationScores[match.id] ?? null]))
+}
+
+function simulatedMatchIds(scoreMap:ScoreMap,simulationScores:ScoreMap) {
+  return new Set(allGroupMatches.flatMap(match=>!scoreMap[match.id] && simulationScores[match.id] ? [match.id] : []))
+}
+
+function rowForSlot(slot:string,standings:GroupStandings,scoreMap:ScoreMap) {
+  const direct=slot.match(/^([12])([A-L])$/)
+  if (direct) {
+    const [,rank,group]=direct
+    const row=standings[group]?.[Number(rank)-1]
+    return row ? {row, pending:!groupComplete(group,scoreMap), third:false} : null
+  }
+  const third=slot.match(/^3([A-L](?:\/[A-L])*)$/)
+  if (third) {
+    const candidates=third[1].split('/').flatMap(group=>{
+      const row=standings[group]?.[2]
+      return row?.status==='best-third' ? [{row,pending:!groupComplete(group,scoreMap), third:true}] : []
+    })
+    if (candidates.length===1) return candidates[0]
+    return {row:null,pending:true,third:true}
+  }
+  const team=teamNames[slot] ? Object.values(standings).flat().find(row=>row.team===slot) : undefined
+  return team ? {row:team,pending:false,third:false} : null
+}
+
+function slotTeam(slot:string,standings:GroupStandings,scoreMap:ScoreMap,language:Language) {
+  const result=rowForSlot(slot,standings,scoreMap)
+  if (!result?.row) return {team:null,label:result?.third ? knockoutCopy[language].bestThirdPending : knockoutCopy[language].pending,pending:true}
+  return {team:result.row.team,label:teamNames[result.row.team][language],pending:result.pending}
+}
+
+function groupHasSimulation(group:string,simulatedIds:Set<string>) {
+  return allGroupMatches.some(match=>match.group===group && simulatedIds.has(match.id))
+}
+
+function matchupStatus(match:{home:string;away:string},standings:GroupStandings,scoreMap:ScoreMap,simulatedIds:Set<string>):SimulationStatus {
+  const home=rowForSlot(match.home,standings,scoreMap)
+  const away=rowForSlot(match.away,standings,scoreMap)
+  const rows=[home?.row,away?.row].filter(Boolean) as RankedStanding[]
+  if (!home?.row || !away?.row) return rows.some(row=>groupHasSimulation(row.group,simulatedIds)) ? 'simulated' : 'pending'
+  if (home.pending || away.pending) return rows.some(row=>groupHasSimulation(row.group,simulatedIds)) ? 'simulated' : 'projection'
+  if (rows.some(row=>groupHasSimulation(row.group,simulatedIds))) return 'simulated'
+  return 'confirmed'
+}
+
+function projectedThirds(standings:GroupStandings) {
+  return Object.values(standings).flat().filter(row=>row.rank===3).sort(compareStanding)
 }
 
 function getCurrentMatchday(now:number) {
@@ -268,6 +368,101 @@ function KnockoutSection({language,zone,standings,scoreMap}:{language:Language;z
   </section>
 }
 
+function SimulationBadge({status,language}:{status:SimulationStatus;language:Language}) {
+  const t=simulationCopy[language]
+  const label={confirmed:t.confirmed,projection:t.projection,pending:t.pending,simulated:t.simulated}[status]
+  return <small className={`simulation-badge badge-${status}`}>{label}</small>
+}
+
+function SimulationTeamSlot({slot,standings,scoreMap,language}:{slot:string;standings:GroupStandings;scoreMap:ScoreMap;language:Language}) {
+  const resolved=slotTeam(slot,standings,scoreMap,language)
+  return <span className={`ko-team ${resolved.team ? 'known' : ''}`}>
+    {resolved.team ? <img className="flag" src={`https://flagcdn.com/w40/${flagCodes[resolved.team]}.png`} alt=""/> : <i/>}
+    <b>{resolved.label}</b>
+  </span>
+}
+
+function SimulationMatchCard({match,language,zone,standings,scoreMap,simulatedIds}:{match:typeof round32Slots[number];language:Language;zone:ZoneKey;standings:GroupStandings;scoreMap:ScoreMap;simulatedIds:Set<string>}) {
+  const t=knockoutCopy[language]
+  const status=matchupStatus(match,standings,scoreMap,simulatedIds)
+  return <article className="group-card knockout-card simulation-match-card">
+    <header className="card-header">
+      <span className="group-badge knockout-badge">{match.num}</span>
+      <h2>{t.round32}</h2>
+      <SimulationBadge status={status} language={language}/>
+    </header>
+    <div className="knockout-matchup">
+      <SimulationTeamSlot slot={match.home} standings={standings} scoreMap={scoreMap} language={language}/>
+      <span>{copy[language].vs}</span>
+      <SimulationTeamSlot slot={match.away} standings={standings} scoreMap={scoreMap} language={language}/>
+    </div>
+    <footer className="venue"><MapPin aria-hidden="true"/><span>{match.city} · {dateParts({dateTime:match.date},zone,language).time} {language==='es'?'Hora Perú':'Peru time'}</span></footer>
+  </article>
+}
+
+function PendingMatchInput({match,language,zone,value,onChange}:{match:Match;language:Language;zone:ZoneKey;value:{home:string;away:string};onChange:(value:{home:string;away:string})=>void}) {
+  return <article className="simulation-input-card">
+    <div className="simulation-input-teams">
+      <span><img className="flag" src={`https://flagcdn.com/w40/${flagCodes[match.home]}.png`} alt=""/>{teamNames[match.home][language]}</span>
+      <b>{copy[language].vs}</b>
+      <span><img className="flag" src={`https://flagcdn.com/w40/${flagCodes[match.away]}.png`} alt=""/>{teamNames[match.away][language]}</span>
+    </div>
+    <div className="simulation-score-inputs">
+      <input inputMode="numeric" pattern="[0-9]*" min="0" max="30" value={value.home} aria-label={teamNames[match.home][language]} onChange={event=>onChange({...value,home:event.target.value.replace(/\D/g,'').slice(0,2)})}/>
+      <span>-</span>
+      <input inputMode="numeric" pattern="[0-9]*" min="0" max="30" value={value.away} aria-label={teamNames[match.away][language]} onChange={event=>onChange({...value,away:event.target.value.replace(/\D/g,'').slice(0,2)})}/>
+    </div>
+    <small>{copy[language].group} {match.group} · {dateParts(match,zone,language).short} · {dateParts(match,zone,language).time} {language==='es'?'Hora Perú':'Peru time'}</small>
+  </article>
+}
+
+function SimulationSection({language,zone,realScoreMap,projectedScoreMap,standings,simulationDraft,onDraftChange,onRecalculate,simulatedIds}:{language:Language;zone:ZoneKey;realScoreMap:ScoreMap;projectedScoreMap:ScoreMap;standings:GroupStandings;simulationDraft:Record<string,{home:string;away:string}>;onDraftChange:(matchId:string,value:{home:string;away:string})=>void;onRecalculate:()=>void;simulatedIds:Set<string>}) {
+  const t=simulationCopy[language]
+  const pendingMatches=allGroupMatches.filter(match=>!hasRealScore(match,realScoreMap))
+  const thirds=projectedThirds(standings)
+  const qualified=Object.values(standings).flat().filter(row=>row.status==='qualified'||row.status==='best-third')
+  return <section className="simulation-section">
+    <header className="section-title simulation-title">
+      <h2>{t.title}</h2>
+      <p>{t.legend}</p>
+    </header>
+
+    <div className="simulation-status-legend">
+      {(['confirmed','projection','pending','simulated'] as SimulationStatus[]).map(status=><p key={status}><SimulationBadge status={status} language={language}/><span>{status==='confirmed'?t.confirmedLegend:status==='projection'?t.projectionLegend:status==='pending'?t.pendingLegend:t.simulatedLegend}</span></p>)}
+    </div>
+
+    <div className="simulation-layout">
+      <section className="simulation-panel simulation-matchups">
+        <h3>{t.projected}</h3>
+        <div className="simulation-card-grid">
+          {round32Slots.map(match=><SimulationMatchCard key={match.num} match={match} language={language} zone={zone} standings={standings} scoreMap={projectedScoreMap} simulatedIds={simulatedIds}/>)}
+        </div>
+      </section>
+
+      <aside className="simulation-panel simulation-form-panel">
+        <h3>{t.simulate}</h3>
+        <div className="simulation-input-list">
+          {pendingMatches.length ? pendingMatches.map(match=><PendingMatchInput key={match.id} match={match} language={language} zone={zone} value={simulationDraft[match.id] ?? {home:'',away:''}} onChange={value=>onDraftChange(match.id,value)}/>) : <p className="simulation-empty">{t.noPending}</p>}
+        </div>
+        <button className="simulation-recalculate" type="button" onClick={onRecalculate}>{t.recalculate}</button>
+      </aside>
+
+      <aside className="simulation-panel simulation-impact">
+        <h3>{t.impact}</h3>
+        <div className="impact-block">
+          <h4>{t.qualified}</h4>
+          <div className="impact-chip-list">{qualified.map(row=><span key={`${row.group}-${row.team}`} className={`impact-chip state-${row.status}`}><img className="flag" src={`https://flagcdn.com/w40/${flagCodes[row.team]}.png`} alt=""/>{teamNames[row.team][language]}</span>)}</div>
+        </div>
+        <div className="impact-block">
+          <h4>{t.bestThirds}</h4>
+          <ol className="third-ranking">{thirds.map(row=><li key={`${row.group}-${row.team}`} className={row.status==='best-third'?'in-zone':'out-zone'}><span>{copy[language].group} {row.group}</span><b>{teamNames[row.team][language]}</b><em>{row.points} pts · {row.gd>0?`+${row.gd}`:row.gd}</em></li>)}</ol>
+        </div>
+      </aside>
+    </div>
+    <p className="simulation-disclaimer">{t.disclaimer}</p>
+  </section>
+}
+
 function SupportModal({ language, onClose }: { language:Language; onClose:()=>void }) {
   const t = copy[language]
   const closeButton = useRef<HTMLButtonElement>(null)
@@ -323,6 +518,8 @@ function App() {
   const [zone,setZone] = useState<ZoneKey>('peru')
   const [section,setSection] = useState<SectionKey>('matches')
   const [matchday,setMatchday] = useState<Exclude<Matchday,'knockout'>>('third')
+  const [simulationDraft,setSimulationDraft] = useState<Record<string,{home:string;away:string}>>({})
+  const [simulationScores,setSimulationScores] = useState<ScoreMap>({})
   const [supportOpen,setSupportOpen] = useState(false)
   const [detailMatch,setDetailMatch] = useState<Match|null>(null)
   const now = useSyncExternalStore(subscribeToMinute,getMinuteSnapshot,getMinuteSnapshot)
@@ -333,6 +530,9 @@ function App() {
   const visible = useMemo(()=>matchdayOptions.find(option=>option.key===matchday)?.matches ?? thirdMatchday,[matchday])
   const groups = useMemo(()=>Object.values(visible.reduce<Record<string,Match[]>>((acc,match)=>{(acc[match.group]??=[]).push(match); return acc},{})),[visible])
   const standings = useMemo(()=>calculateStandings(scoreMap,language),[scoreMap,language])
+  const simulatedIds = useMemo(()=>simulatedMatchIds(scoreMap,simulationScores),[scoreMap,simulationScores])
+  const projectedScoreMap = useMemo(()=>mergeSimulationScores(scoreMap,simulationScores),[scoreMap,simulationScores])
+  const projectedStandings = useMemo(()=>calculateStandings(projectedScoreMap,language),[projectedScoreMap,language])
   const hasLiveMatches = allGroupMatches.some(match=>getMatchStatus(match,scoreMap[match.id],now)==='live')
   const range = useMemo(()=>{
     const days = visible.map(match=>Number(dateParts(match,zone,language).day))
@@ -340,7 +540,17 @@ function App() {
     return language === 'es' ? `${min}–${max} de junio de 2026` : `June ${min}–${max}, 2026`
   },[visible,zone,language])
   const zoneName = zones[zone][language]
-  const subtitle = section==='matches' ? `${labels.matches} · ${range}` : section==='standings' ? labels.standings : labels.knockout
+  const subtitle = section==='matches' ? `${labels.matches} · ${range}` : section==='standings' ? labels.standings : section==='knockout' ? labels.knockout : simulationCopy[language].title
+
+  const updateSimulationDraft=(matchId:string,value:{home:string;away:string})=>setSimulationDraft(current=>({...current,[matchId]:value}))
+  const recalculateSimulation=()=>{
+    const simulated=Object.fromEntries(Object.entries(simulationDraft).flatMap(([matchId,value])=>{
+      if (scoreMap[matchId] || value.home==='' || value.away==='') return []
+      return [[matchId,`${Number(value.home)}-${Number(value.away)}`]]
+    })) as ScoreMap
+    setSimulationScores(simulated)
+    setSection('simulation')
+  }
 
   useEffect(()=>startScoreRefresh(allGroupMatches),[])
   useEffect(()=>{
@@ -357,6 +567,7 @@ function App() {
       <div className="controls">
         <nav className="section-nav" aria-label={language==='es'?'Secciones':'Sections'}>
           {(['matches','standings','knockout'] as SectionKey[]).map(key=><button key={key} className={section===key?'active':''} type="button" onClick={()=>setSection(key)}>{labels[key]}</button>)}
+          <button className={`simulation-nav-button ${section==='simulation'?'active':''}`} type="button" onClick={()=>setSection('simulation')} aria-label={labels.simulation} title={labels.simulation}><span aria-hidden="true">🤖</span><b>{labels.simulation}</b></button>
         </nav>
         <button className="fixture-btn" type="button" onClick={()=>setSection('matches')} aria-label={language==='es'?'Ver partidos':'View matches'}><CalendarDays aria-hidden="true"/><span>{language==='es'?'Ver partidos':'View matches'}</span></button>
         <a className="stats-ball-link" href="./estadisticas.html" aria-label={language==='es'?'Abrir estadísticas':'Open statistics'}>
@@ -385,6 +596,7 @@ function App() {
         <div className="groups-grid standings-grid">{Object.entries(standings).map(([group,rows])=><StandingGroupCard key={group} group={group} standings={rows} language={language}/>)}</div>
       </section> : null}
       {section==='knockout' ? <KnockoutSection language={language} zone={zone} standings={standings} scoreMap={scoreMap}/> : null}
+      {section==='simulation' ? <SimulationSection language={language} zone={zone} realScoreMap={scoreMap} projectedScoreMap={projectedScoreMap} standings={projectedStandings} simulationDraft={simulationDraft} onDraftChange={updateSimulationDraft} onRecalculate={recalculateSimulation} simulatedIds={simulatedIds}/> : null}
     </main>
 
     <footer className="bottom-panel">
