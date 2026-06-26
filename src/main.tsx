@@ -168,14 +168,13 @@ function MatchRow({ match, language, zone, onOpen }: { match: Match; language:La
   const t = copy[language]
   const liveScore = useSyncExternalStore(listener=>subscribeToScore(match.id,listener),()=>getScoreSnapshot(match.id),()=>getScoreSnapshot(match.id))
   const score = liveScore ?? match.score
-  const status = getMatchStatus(match,score)
   return <div className="match-row interactive-match" role="button" tabIndex={0} onClick={event=>{event.stopPropagation();onOpen()}} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onOpen()}}}>
     <MatchStatusDot match={match} score={score} language={language}/>
     <span className="team home"><img className="flag" src={`https://flagcdn.com/w40/${flagCodes[match.home]}.png`} alt=""/><span>{teamNames[match.home][language]}</span></span>
     <span className="versus">{t.vs}</span>
     <span className="team away"><img className="flag" src={`https://flagcdn.com/w40/${flagCodes[match.away]}.png`} alt=""/><span>{teamNames[match.away][language]}</span></span>
     <span className="match-time"><Clock3 aria-hidden="true" />{dateParts(match,zone,language).time}<small>{language==='es'?'Hora Perú':'Peru time'}</small></span>
-    <span className={`score ${score ? 'done' : ''}`}>{score ?? '--'}<small>{copy[language][status]}</small></span>
+    <span className={`score ${score ? 'done' : ''}`}>{score ?? '--'}</span>
   </div>
 }
 

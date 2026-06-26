@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useReducer, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Activity, ArrowLeft, BarChart3, CalendarDays, Clock, Goal, Handshake, Shield, ShieldCheck, Target, TrendingUp, Trophy, Users, Volleyball } from 'lucide-react'
+import { Activity, ArrowLeft, BarChart3, CalendarDays, Clock, Globe2, Goal, Handshake, Shield, ShieldCheck, Target, TrendingUp, Trophy, Users, Volleyball } from 'lucide-react'
 import { allGroupMatches, flagCodes, teamNames, type Language, type Match } from './data'
 import { cleanSheetsByGK, disciplineByTeam, topAssists, topEfficiency, topSaves, topScorers, topShots } from './playerStats'
-import { getScoreSnapshot, refreshScores, subscribeToScore } from './worldcupScores'
+import { getScoreSnapshot, startScoreRefresh, subscribeToScore } from './worldcupScores'
 import './statistics.css'
 
 type ScoreMap = Record<string,string|null>
@@ -227,6 +227,7 @@ function StatisticsApp() {
   const [language,setLanguage]=useState<Language>('es')
   const [updatedAt,setUpdatedAt]=useState(()=>new Date())
   const scoreMap=useScores()
+  const scoreSignature=useMemo(()=>Object.entries(scoreMap).map(([id,score])=>`${id}:${score ?? ''}`).join('|'),[scoreMap])
   const {teams,playedMatches,totalGoals,highScoringMatches,goallessMatches,totalTeams}=useMemo(()=>buildTeamStats(scoreMap),[scoreMap])
   const cards=useMemo(()=>buildCards(teams,playedMatches,totalGoals,highScoringMatches,goallessMatches,language),[teams,playedMatches,totalGoals,highScoringMatches,goallessMatches,language])
   const updated=formatDateTime(updatedAt,language)
@@ -236,11 +237,8 @@ function StatisticsApp() {
     document.title=language==='es'?'Estadísticas Mundial 2026':'World Cup 2026 Statistics'
   },[language])
 
-  useEffect(()=>{
-    let disposed=false
-    refreshScores(allGroupMatches).finally(()=>{if(!disposed)setUpdatedAt(new Date())})
-    return ()=>{disposed=true}
-  },[])
+  useEffect(()=>startScoreRefresh(allGroupMatches),[])
+  useEffect(()=>setUpdatedAt(new Date()),[scoreSignature])
 
   return <div className="statistics-shell">
     <header className="statistics-header">
@@ -250,13 +248,9 @@ function StatisticsApp() {
       </a>
       <div className="header-actions">
         <a className="home-button" href="./index.html"><ArrowLeft aria-hidden="true"/>{language==='es'?'Inicio':'Home'}</a>
-        <div className="statistics-language">
-          <span>{language==='es'?'Idioma':'Language'}</span>
-          <div role="group" aria-label={language==='es'?'Idioma':'Language'}>
-            <button className={language==='es'?'active':''} onClick={()=>setLanguage('es')}>Español</button>
-            <button className={language==='en'?'active':''} onClick={()=>setLanguage('en')}>English</button>
-          </div>
-        </div>
+        <button className="statistics-language-globe" type="button" onClick={()=>setLanguage(language==='es'?'en':'es')} aria-label={language==='es'?'Cambiar idioma':'Change language'} title={language==='es'?'Cambiar idioma':'Change language'}>
+          <Globe2 aria-hidden="true"/><span>{language.toUpperCase()}</span>
+        </button>
       </div>
     </header>
     <main className="statistics-main">
