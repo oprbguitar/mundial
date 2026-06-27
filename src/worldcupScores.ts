@@ -31,6 +31,7 @@ const aliasToTeamId = new Map(Object.entries(teamAliases).flatMap(([teamId,alias
 function resolveTeamId(value:string) { return appTeamIds[value] ?? aliasToTeamId.get(normalize(value)) }
 function normalizeGroup(value:string) { return normalize(value).replace(/^group/,'') }
 
+interface GoalEntry { name?: string; minute?: string|number; penalty?: boolean; owngoal?: boolean }
 interface SourceMatch {
   group?: string
   date?: string
@@ -38,6 +39,8 @@ interface SourceMatch {
   team2?: string
   status?: string
   score?: { ft?: [number,number]; current?: [number,number]; live?: [number,number] }
+  goals1?: GoalEntry[]
+  goals2?: GoalEntry[]
 }
 interface OpenFootballData { matches?:SourceMatch[] }
 interface ScoreOverride { homeTeamId:string; awayTeamId:string; group:string; date?:string; score?:string|null; status?:string; source?:string }
@@ -127,6 +130,76 @@ export function subscribeToScore(matchId:string,listener:()=>void) {
   return ()=>{set.delete(listener);if(!set.size)listeners.delete(matchId)}
 }
 
+// ---- Live top scorers (computed from openfootball goals1/goals2 data) ----
+export interface ScorerEntry { player:string; team:string; value:number }
+
+const teamIdToAppKey = new Map(Object.entries(appTeamIds).map(([appKey,teamId])=>[teamId,appKey] as const))
+let scorerTally:ScorerEntry[] = []
+const scorerListeners = new Set<()=>void>()
+
+function abbreviateName(name:string) {
+  const clean=name.replace(/\s*\([^)]*\)\s*/g,' ').trim()
+  const parts=clean.split(/\s+/)
+  return parts.length<2 ? clean : `${parts[0][0]}. ${parts.slice(1).join(' ')}`
+}
+
+function indexGoals(data:OpenFootballData) {
+  const index=new Map<string,{home:GoalEntry[];away:GoalEntry[]}>()
+  for (const match of data.matches ?? []) {
+    if (!match.group || !match.date || !match.team1 || !match.team2) continue
+    const homeTeamId=resolveTeamId(match.team1),awayTeamId=resolveTeamId(match.team2)
+    if (!homeTeamId || !awayTeamId) continue
+    index.set(fixtureKey(homeTeamId,awayTeamId,match.group,match.date),{home:match.goals1 ?? [],away:match.goals2 ?? []})
+  }
+  return index
+}
+
+function findGoals(index:Map<string,{home:GoalEntry[];away:GoalEntry[]}>,fixture:Match) {
+  const homeTeamId=resolveTeamId(fixture.home),awayTeamId=resolveTeamId(fixture.away),date=fixture.dateTime.slice(0,10)
+  if (!homeTeamId || !awayTeamId) return undefined
+  const direct=index.get(fixtureKey(homeTeamId,awayTeamId,fixture.group,date))
+  if (direct) return direct
+  const reversed=index.get(fixtureKey(awayTeamId,homeTeamId,fixture.group,date))
+  return reversed ? {home:reversed.away,away:reversed.home} : undefined
+}
+
+function hasGoals(goals:{home:GoalEntry[];away:GoalEntry[]}|undefined) {
+  return !!goals && (goals.home.length>0 || goals.away.length>0)
+}
+
+function rebuildScorers(fixtures:Match[],goalsIndexes:Map<string,{home:GoalEntry[];away:GoalEntry[]}>[]) {
+  const tally=new Map<string,ScorerEntry>()
+  for (const fixture of fixtures) {
+    const goals=goalsIndexes.map(index=>findGoals(index,fixture)).find(hasGoals)
+    if (!goals) continue
+    const homeKey=teamIdToAppKey.get(resolveTeamId(fixture.home) ?? '') ?? fixture.home
+    const awayKey=teamIdToAppKey.get(resolveTeamId(fixture.away) ?? '') ?? fixture.away
+    for (const [list,teamKey] of [[goals.home,homeKey],[goals.away,awayKey]] as const) {
+      for (const goal of list) {
+        if (!goal?.name || goal.owngoal) continue
+        const key=`${teamKey}|${goal.name}`
+        const entry=tally.get(key) ?? {player:abbreviateName(goal.name),team:teamKey,value:0}
+        entry.value++
+        tally.set(key,entry)
+      }
+    }
+  }
+  const next=[...tally.values()].sort((a,b)=>b.value-a.value || a.player.localeCompare(b.player))
+  const prevSig=scorerTally.map(s=>`${s.team}:${s.player}:${s.value}`).join('|')
+  const nextSig=next.map(s=>`${s.team}:${s.player}:${s.value}`).join('|')
+  scorerTally=next
+  if (prevSig!==nextSig) scorerListeners.forEach(listener=>listener())
+}
+
+export function getLiveScorers(limit=7):ScorerEntry[]|null {
+  return scorerTally.length ? scorerTally.slice(0,limit) : null
+}
+
+export function subscribeToScorers(listener:()=>void) {
+  scorerListeners.add(listener)
+  return ()=>{scorerListeners.delete(listener)}
+}
+
 async function fetchJson<T>(url:string) {
   const controller=new AbortController()
   const timeout=window.setTimeout(()=>controller.abort(),FETCH_TIMEOUT)
@@ -160,6 +233,10 @@ export async function refreshScores(fixtures:Match[]) {
   }
   try { localStorage.setItem(CACHE_KEY,JSON.stringify({version:CACHE_VERSION,savedAt:Date.now(),scores,statuses} satisfies ScoreCache)) } catch {}
   changed.forEach(matchId=>listeners.get(matchId)?.forEach(listener=>listener()))
+
+  const goalsIndexes=[localData ? indexGoals(localData) : null,remoteData ? indexGoals(remoteData) : null].filter(Boolean) as Map<string,{home:GoalEntry[];away:GoalEntry[]}>[]
+  if (goalsIndexes.length) rebuildScorers(fixtures,goalsIndexes)
+
   if (sourceUnavailable) throw new Error('Score source unavailable')
   return changed
 }

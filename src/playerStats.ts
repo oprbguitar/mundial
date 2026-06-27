@@ -47,6 +47,15 @@ export const topSaves: PlayerStatEntry[] = [
   { player: 'U. Simón',    team: 'Spain',       value: 8  },
 ]
 
+// Verified starting goalkeepers — used to label live-computed clean sheets.
+// Teams not listed fall back to the country name (avoids guessing keeper names).
+export const keeperByTeam: Record<string,string> = {
+  Mexico: 'R. Rangel', Argentina: 'E. Martínez', Brazil: 'Alisson', Spain: 'U. Simón',
+  Australia: 'P. Beach', IvoryCoast: 'Y. Fofana', England: 'J. Pickford', Paraguay: 'O. Gill',
+  Morocco: 'Y. Bounou', France: 'M. Maignan', Switzerland: 'G. Kobel', Curacao: 'E. Room',
+  SaudiArabia: 'M. Al-Owais', USA: 'M. Turner',
+}
+
 // Clean sheets — FOX Sports goalkeeping stats (Rangel led Mexico's perfect group stage)
 export const cleanSheetsByGK: PlayerStatEntry[] = [
   { player: 'R. Rangel',   team: 'Mexico',     value: 3 },

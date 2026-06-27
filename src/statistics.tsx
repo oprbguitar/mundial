@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useReducer, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Activity, ArrowLeft, BarChart3, CalendarDays, Clock, Globe2, Goal, Handshake, Shield, ShieldCheck, Target, TrendingUp, Trophy, Users, Volleyball } from 'lucide-react'
 import { allGroupMatches, flagCodes, teamNames, type Language, type Match } from './data'
-import { cleanSheetsByGK, disciplineByTeam, topAssists, topEfficiency, topSaves, topScorers, topShots } from './playerStats'
-import { getFinalScoreSnapshot, startScoreRefresh, subscribeToScore } from './worldcupScores'
+import { disciplineByTeam, keeperByTeam, topAssists, topEfficiency, topSaves, topScorers, topShots } from './playerStats'
+import { getFinalScoreSnapshot, getLiveScorers, startScoreRefresh, subscribeToScore, subscribeToScorers, type ScorerEntry } from './worldcupScores'
 import './statistics.css'
 
 type ScoreMap = Record<string,string|null>
@@ -49,6 +49,12 @@ function useScores() {
     return ()=>unsubscribers.forEach(unsubscribe=>unsubscribe())
   },[])
   return readScores(allGroupMatches)
+}
+
+function useScorers() {
+  const [,bump]=useReducer((value:number)=>value+1,0)
+  useEffect(()=>subscribeToScorers(bump),[])
+  return getLiveScorers()
 }
 
 function parseScore(score:string|null|undefined) {
@@ -103,7 +109,19 @@ function disciplineRows():StatRow[] {
   return disciplineByTeam.map(d=>({team:d.team,value:d.yellow,extra:[d.red]}))
 }
 
-function buildCards(teams:TeamStat[],playedMatches:number,totalGoals:number,highScoringMatches:number,goallessMatches:number,language:Language):StatCard[] {
+// Clean sheets computed live from match results; keeper name from verified lookup, else country.
+function cleanSheetRows(teams:TeamStat[]):StatRow[] {
+  return teams.filter(t=>t.cleanSheets>0)
+    .sort((a,b)=>b.cleanSheets-a.cleanSheets||b.gd-a.gd||teamNames[a.team].es.localeCompare(teamNames[b.team].es))
+    .slice(0,7)
+    .map(t=>({team:t.team,player:keeperByTeam[t.team],value:t.cleanSheets}))
+}
+
+function scorerRows(liveScorers:ScorerEntry[]|null):StatRow[] {
+  return liveScorers && liveScorers.length ? liveScorers.map(s=>({team:s.team,player:s.player,value:s.value})) : playerRows(topScorers)
+}
+
+function buildCards(teams:TeamStat[],playedMatches:number,totalGoals:number,highScoringMatches:number,goallessMatches:number,liveScorers:ScorerEntry[]|null,language:Language):StatCard[] {
   const average=playedMatches?(totalGoals/playedMatches).toFixed(2):'0.00'
   const highPct=playedMatches?`${((highScoringMatches/playedMatches)*100).toFixed(1)}%`:'0.0%'
   const goallessPct=playedMatches?`${((goallessMatches/playedMatches)*100).toFixed(1)}%`:'0.0%'
@@ -113,7 +131,7 @@ function buildCards(teams:TeamStat[],playedMatches:number,totalGoals:number,high
       icon:<Trophy aria-hidden="true"/>,
       title:{es:'Goleadores',en:'Top Scorers'},
       columns:{es:['Goles'],en:['Goals']},
-      rows:playerRows(topScorers),
+      rows:scorerRows(liveScorers),
     },
     {
       icon:<Handshake aria-hidden="true"/>,
@@ -131,7 +149,7 @@ function buildCards(teams:TeamStat[],playedMatches:number,totalGoals:number,high
       icon:<ShieldCheck aria-hidden="true"/>,
       title:{es:'Vallas invictas',en:'Clean Sheets'},
       columns:{es:['Partidos'],en:['Matches']},
-      rows:playerRows(cleanSheetsByGK),
+      rows:cleanSheetRows(teams),
     },
     {
       icon:<Volleyball aria-hidden="true"/>,
@@ -227,9 +245,11 @@ function StatisticsApp() {
   const [language,setLanguage]=useState<Language>('es')
   const [updatedAt,setUpdatedAt]=useState(()=>new Date())
   const scoreMap=useScores()
+  const liveScorers=useScorers()
   const scoreSignature=useMemo(()=>Object.entries(scoreMap).map(([id,score])=>`${id}:${score ?? ''}`).join('|'),[scoreMap])
+  const scorerSignature=useMemo(()=>(liveScorers ?? []).map(s=>`${s.team}:${s.player}:${s.value}`).join('|'),[liveScorers])
   const {teams,playedMatches,totalGoals,highScoringMatches,goallessMatches,totalTeams}=useMemo(()=>buildTeamStats(scoreMap),[scoreMap])
-  const cards=useMemo(()=>buildCards(teams,playedMatches,totalGoals,highScoringMatches,goallessMatches,language),[teams,playedMatches,totalGoals,highScoringMatches,goallessMatches,language])
+  const cards=useMemo(()=>buildCards(teams,playedMatches,totalGoals,highScoringMatches,goallessMatches,liveScorers,language),[teams,playedMatches,totalGoals,highScoringMatches,goallessMatches,scorerSignature,language])
   const updated=formatDateTime(updatedAt,language)
 
   useEffect(()=>{
