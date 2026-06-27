@@ -1,4 +1,4 @@
-﻿export type Language = 'es' | 'en'
+export type Language = 'es' | 'en'
 export type Host = 'all' | 'Mexico' | 'USA' | 'Canada'
 export type Status = 'scheduled' | 'live' | 'finished'
 export type Matchday = 'first' | 'second' | 'third' | 'knockout'
@@ -119,24 +119,24 @@ export const secondMatchday: Match[] = [
 ]
 
 export const thirdMatchday: Match[] = [
-  fixture('t1','A','2026-06-24T19:00:00-06:00','Czechia','Mexico','Mexico City'),
-  fixture('t2','A','2026-06-24T19:00:00-06:00','SouthAfrica','SouthKorea','Monterrey (Guadalupe)'),
-  fixture('t3','B','2026-06-24T12:00:00-07:00','Switzerland','Canada','Vancouver'),
-  fixture('t4','B','2026-06-24T12:00:00-07:00','Bosnia','Qatar','Seattle'),
-  fixture('t5','C','2026-06-24T18:00:00-04:00','Scotland','Brazil','Miami (Miami Gardens)'),
-  fixture('t6','C','2026-06-24T18:00:00-04:00','Morocco','Haiti','Atlanta'),
-  fixture('t7','D','2026-06-25T19:00:00-07:00','Turkey','USA','Los Angeles (Inglewood)'),
-  fixture('t8','D','2026-06-25T19:00:00-07:00','Paraguay','Australia','San Francisco Bay Area (Santa Clara)'),
-  fixture('t9','E','2026-06-25T16:00:00-04:00','Curacao','IvoryCoast','Philadelphia'),
-  fixture('t10','E','2026-06-25T16:00:00-04:00','Ecuador','Germany','New York/New Jersey (East Rutherford)'),
-  fixture('t11','F','2026-06-25T18:00:00-05:00','Japan','Sweden','Dallas (Arlington)'),
-  fixture('t12','F','2026-06-25T18:00:00-05:00','Tunisia','Netherlands','Kansas City'),
+  fixture('t1','A','2026-06-24T19:00:00-06:00','Czechia','Mexico','Mexico City','0-3'),
+  fixture('t2','A','2026-06-24T19:00:00-06:00','SouthAfrica','SouthKorea','Monterrey (Guadalupe)','1-0'),
+  fixture('t3','B','2026-06-24T12:00:00-07:00','Switzerland','Canada','Vancouver','3-1'),
+  fixture('t4','B','2026-06-24T12:00:00-07:00','Bosnia','Qatar','Seattle','3-1'),
+  fixture('t5','C','2026-06-24T18:00:00-04:00','Scotland','Brazil','Miami (Miami Gardens)','0-3'),
+  fixture('t6','C','2026-06-24T18:00:00-04:00','Morocco','Haiti','Atlanta','4-2'),
+  fixture('t7','D','2026-06-25T19:00:00-07:00','Turkey','USA','Los Angeles (Inglewood)','3-2'),
+  fixture('t8','D','2026-06-25T19:00:00-07:00','Paraguay','Australia','San Francisco Bay Area (Santa Clara)','0-0'),
+  fixture('t9','E','2026-06-25T16:00:00-04:00','Curacao','IvoryCoast','Philadelphia','0-2'),
+  fixture('t10','E','2026-06-25T16:00:00-04:00','Ecuador','Germany','New York/New Jersey (East Rutherford)','2-1'),
+  fixture('t11','F','2026-06-25T18:00:00-05:00','Japan','Sweden','Dallas (Arlington)','1-1'),
+  fixture('t12','F','2026-06-25T18:00:00-05:00','Tunisia','Netherlands','Kansas City','1-3'),
   fixture('t13','G','2026-06-26T20:00:00-07:00','Egypt','Iran','Seattle'),
   fixture('t14','G','2026-06-26T20:00:00-07:00','NewZealand','Belgium','Vancouver'),
   fixture('t15','H','2026-06-26T19:00:00-05:00','CapeVerde','SaudiArabia','Houston'),
   fixture('t16','H','2026-06-26T18:00:00-06:00','Uruguay','Spain','Guadalajara (Zapopan)'),
-  fixture('t17','I','2026-06-26T15:00:00-04:00','Norway','France','Boston (Foxborough)'),
-  fixture('t18','I','2026-06-26T15:00:00-04:00','Senegal','Iraq','Toronto'),
+  fixture('t17','I','2026-06-26T15:00:00-04:00','Norway','France','Boston (Foxborough)','1-4'),
+  fixture('t18','I','2026-06-26T15:00:00-04:00','Senegal','Iraq','Toronto','5-0'),
   fixture('t19','J','2026-06-27T21:00:00-05:00','Algeria','Austria','Kansas City'),
   fixture('t20','J','2026-06-27T21:00:00-05:00','Jordan','Argentina','Dallas (Arlington)'),
   fixture('t21','K','2026-06-27T19:30:00-04:00','Colombia','Portugal','Miami (Miami Gardens)'),
