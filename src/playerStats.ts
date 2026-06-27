@@ -36,26 +36,26 @@ export const topAssists: PlayerStatEntry[] = [
   { player: 'M. Salah',    team: 'Egypt',       value: 2 },
 ]
 
-// Most saves — World Cup goalkeeper stats (Room's 15 in one game is a tournament record)
+// Most saves — FOX Sports goalkeeping stats (Room's 15 in one game is a tournament record)
 export const topSaves: PlayerStatEntry[] = [
   { player: 'E. Room',     team: 'Curacao',     value: 20 },
   { player: 'M. Al-Owais', team: 'SaudiArabia', value: 14 },
   { player: 'O. Gill',     team: 'Paraguay',    value: 13 },
-  { player: 'Vozinha',     team: 'CapeVerde',   value: 11 },
-  { player: 'Y. Bounou',   team: 'Morocco',     value: 9  },
+  { player: 'P. Beach',    team: 'Australia',   value: 11 },
+  { player: 'Alisson',     team: 'Brazil',      value: 10 },
+  { player: 'Y. Fofana',   team: 'IvoryCoast',  value: 9  },
   { player: 'U. Simón',    team: 'Spain',       value: 8  },
-  { player: 'E. Martínez', team: 'Argentina',   value: 6  },
 ]
 
-// Clean sheets — computed from real match results through Matchday 3
+// Clean sheets — FOX Sports goalkeeping stats (Rangel led Mexico's perfect group stage)
 export const cleanSheetsByGK: PlayerStatEntry[] = [
-  { player: 'G. Ochoa',    team: 'Mexico',    value: 3 },
-  { player: 'E. Martínez', team: 'Argentina', value: 2 },
-  { player: 'U. Simón',    team: 'Spain',     value: 2 },
-  { player: 'Alisson',     team: 'Brazil',    value: 2 },
-  { player: 'M. Maignan',  team: 'France',    value: 1 },
-  { player: 'M. Turner',   team: 'USA',       value: 1 },
-  { player: 'S. Gonda',    team: 'Japan',     value: 1 },
+  { player: 'R. Rangel',   team: 'Mexico',     value: 3 },
+  { player: 'E. Martínez', team: 'Argentina',  value: 2 },
+  { player: 'Alisson',     team: 'Brazil',     value: 2 },
+  { player: 'U. Simón',    team: 'Spain',      value: 2 },
+  { player: 'P. Beach',    team: 'Australia',  value: 2 },
+  { player: 'Y. Fofana',   team: 'IvoryCoast', value: 2 },
+  { player: 'J. Pickford', team: 'England',    value: 2 },
 ]
 
 // Shots on target — Messi (8) confirmed; remaining estimated from goals and chances created
