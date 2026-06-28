@@ -14,5 +14,41 @@
     "score": "0-0",
     "status": "finished",
     "source": "manual-public-result"
+  },
+  {
+    "homeTeamId": "colombia",
+    "awayTeamId": "portugal",
+    "group": "K",
+    "date": "2026-06-27",
+    "score": "0-0",
+    "status": "finished",
+    "source": "manual-public-result"
+  },
+  {
+    "homeTeamId": "drccongo",
+    "awayTeamId": "uzbekistan",
+    "group": "K",
+    "date": "2026-06-27",
+    "score": "3-1",
+    "status": "finished",
+    "source": "manual-public-result"
+  },
+  {
+    "homeTeamId": "panama",
+    "awayTeamId": "england",
+    "group": "L",
+    "date": "2026-06-27",
+    "score": "0-2",
+    "status": "finished",
+    "source": "manual-public-result"
+  },
+  {
+    "homeTeamId": "croatia",
+    "awayTeamId": "ghana",
+    "group": "L",
+    "date": "2026-06-27",
+    "score": "2-1",
+    "status": "finished",
+    "source": "manual-public-result"
   }
 ]
