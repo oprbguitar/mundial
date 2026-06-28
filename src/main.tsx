@@ -110,22 +110,22 @@ const simulationCopy = {
 } as const
 
 const round32Slots = [
-  {num:73,date:'2026-06-28T12:00:00-07:00',city:'Los Angeles (Inglewood)',home:'2A',away:'2B'},
-  {num:74,date:'2026-06-29T16:30:00-04:00',city:'Boston (Foxborough)',home:'1E',away:'3A/B/C/D/F'},
-  {num:75,date:'2026-06-29T19:00:00-06:00',city:'Monterrey (Guadalupe)',home:'1F',away:'2C'},
-  {num:76,date:'2026-06-29T12:00:00-05:00',city:'Houston',home:'1C',away:'2F'},
-  {num:77,date:'2026-06-30T17:00:00-04:00',city:'New York/New Jersey (East Rutherford)',home:'1I',away:'3C/D/F/G/H'},
-  {num:78,date:'2026-06-30T12:00:00-05:00',city:'Dallas (Arlington)',home:'2E',away:'2I'},
-  {num:79,date:'2026-06-30T19:00:00-06:00',city:'Mexico City',home:'1A',away:'3C/E/F/H/I'},
-  {num:80,date:'2026-07-01T12:00:00-04:00',city:'Atlanta',home:'1L',away:'3E/H/I/J/K'},
-  {num:81,date:'2026-07-01T17:00:00-07:00',city:'San Francisco Bay Area (Santa Clara)',home:'1D',away:'3B/E/F/I/J'},
-  {num:82,date:'2026-07-01T13:00:00-07:00',city:'Seattle',home:'1G',away:'3A/E/H/I/J'},
-  {num:83,date:'2026-07-02T19:00:00-04:00',city:'Toronto',home:'2K',away:'2L'},
-  {num:84,date:'2026-07-02T12:00:00-07:00',city:'Los Angeles (Inglewood)',home:'1H',away:'2J'},
-  {num:85,date:'2026-07-02T20:00:00-07:00',city:'Vancouver',home:'1B',away:'3E/F/G/I/J'},
-  {num:86,date:'2026-07-03T18:00:00-04:00',city:'Miami (Miami Gardens)',home:'1J',away:'2H'},
-  {num:87,date:'2026-07-03T20:30:00-05:00',city:'Kansas City',home:'1K',away:'3D/E/I/J/L'},
-  {num:88,date:'2026-07-03T13:00:00-05:00',city:'Dallas (Arlington)',home:'2D',away:'2G'},
+  {num:73,date:'2026-06-28T12:00:00-07:00',city:'Los Angeles (Inglewood)',home:'SouthAfrica',away:'Canada'},
+  {num:74,date:'2026-06-29T16:30:00-04:00',city:'Boston (Foxborough)',home:'Germany',away:'Paraguay'},
+  {num:75,date:'2026-06-29T19:00:00-06:00',city:'Monterrey (Guadalupe)',home:'Netherlands',away:'Morocco'},
+  {num:76,date:'2026-06-29T12:00:00-05:00',city:'Houston',home:'Brazil',away:'Japan'},
+  {num:77,date:'2026-06-30T17:00:00-04:00',city:'New York/New Jersey (East Rutherford)',home:'France',away:'Sweden'},
+  {num:78,date:'2026-06-30T12:00:00-05:00',city:'Dallas (Arlington)',home:'IvoryCoast',away:'Norway'},
+  {num:79,date:'2026-06-30T19:00:00-06:00',city:'Mexico City',home:'Mexico',away:'Ecuador'},
+  {num:80,date:'2026-07-01T12:00:00-04:00',city:'Atlanta',home:'England',away:'DRCCongo'},
+  {num:81,date:'2026-07-01T17:00:00-07:00',city:'San Francisco Bay Area (Santa Clara)',home:'USA',away:'Bosnia'},
+  {num:82,date:'2026-07-01T13:00:00-07:00',city:'Seattle',home:'Belgium',away:'Senegal'},
+  {num:83,date:'2026-07-02T19:00:00-04:00',city:'Toronto',home:'Portugal',away:'Croatia'},
+  {num:84,date:'2026-07-02T12:00:00-07:00',city:'Los Angeles (Inglewood)',home:'Spain',away:'Austria'},
+  {num:85,date:'2026-07-02T20:00:00-07:00',city:'Vancouver',home:'Switzerland',away:'Algeria'},
+  {num:86,date:'2026-07-03T18:00:00-04:00',city:'Miami (Miami Gardens)',home:'Argentina',away:'CapeVerde'},
+  {num:87,date:'2026-07-03T20:30:00-05:00',city:'Kansas City',home:'Colombia',away:'Ghana'},
+  {num:88,date:'2026-07-03T13:00:00-05:00',city:'Dallas (Arlington)',home:'Australia',away:'Egypt'},
 ] as const
 
 function useScores(finalOnly=false) {
@@ -507,7 +507,7 @@ function SupportModal({ language, onClose }: { language:Language; onClose:()=>vo
 function App() {
   const [language,setLanguage] = useState<Language>('es')
   const [zone,setZone] = useState<ZoneKey>('peru')
-  const [section,setSection] = useState<SectionKey>('matches')
+  const [section,setSection] = useState<SectionKey>('knockout')
   const [matchday,setMatchday] = useState<Exclude<Matchday,'knockout'>>('third')
   const [simulationDraft,setSimulationDraft] = useState<Record<string,{home:string;away:string}>>({})
   const [simulationScores,setSimulationScores] = useState<ScoreMap>({})
