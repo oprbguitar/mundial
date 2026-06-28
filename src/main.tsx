@@ -6,6 +6,7 @@ import { copy } from './i18n'
 import { getFinalScoreSnapshot, getScoreSnapshot, getStatusSnapshot, startScoreRefresh, subscribeToScore } from './worldcupScores'
 import { getMatchStatus, getMinuteSnapshot, subscribeToMinute } from './matchStatus'
 import { MatchDetailsModal } from './MatchDetailsModal'
+import { autoRefreshKnockout, buildProgressiveBracket, fetchWorldCupData, knockoutMatches, normalizeKnockoutData, readCachedKnockout, updateAfterFinalWhistle, writeCachedKnockout, type KnockoutMatch, type KnockoutStage, type KnockoutTeam, type SlotName } from './knockoutData'
 import './styles.css'
 
 const YAPE_NUMBER = '973337773'
@@ -53,16 +54,16 @@ const standingsCopy = {
 
 const knockoutCopy = {
   es: {
-    title:'Fase de eliminación directa',
+    title:'Eliminatorias',
     round32:'Eliminatoria de 32',
-    subtitle:'también conocida como 16avos',
+    subtitle:'Cuadro oficial actualizado según resultados',
     pending:'Por definir',
     bestThirdPending:'Mejor 3.º pendiente',
   },
   en: {
     title:'Knockout stage',
     round32:'Round of 32',
-    subtitle:'also known as the round of 32',
+    subtitle:'Official bracket updated by results',
     pending:'To be decided',
     bestThirdPending:'Best 3rd pending',
   },
@@ -110,22 +111,22 @@ const simulationCopy = {
 } as const
 
 const round32Slots = [
-  {num:73,date:'2026-06-28T12:00:00-07:00',city:'Los Angeles (Inglewood)',home:'SouthAfrica',away:'Canada'},
-  {num:74,date:'2026-06-29T16:30:00-04:00',city:'Boston (Foxborough)',home:'Germany',away:'Paraguay'},
-  {num:75,date:'2026-06-29T19:00:00-06:00',city:'Monterrey (Guadalupe)',home:'Netherlands',away:'Morocco'},
-  {num:76,date:'2026-06-29T12:00:00-05:00',city:'Houston',home:'Brazil',away:'Japan'},
-  {num:77,date:'2026-06-30T17:00:00-04:00',city:'New York/New Jersey (East Rutherford)',home:'France',away:'Sweden'},
-  {num:78,date:'2026-06-30T12:00:00-05:00',city:'Dallas (Arlington)',home:'IvoryCoast',away:'Norway'},
-  {num:79,date:'2026-06-30T19:00:00-06:00',city:'Mexico City',home:'Mexico',away:'Ecuador'},
-  {num:80,date:'2026-07-01T12:00:00-04:00',city:'Atlanta',home:'England',away:'DRCCongo'},
-  {num:81,date:'2026-07-01T17:00:00-07:00',city:'San Francisco Bay Area (Santa Clara)',home:'USA',away:'Bosnia'},
-  {num:82,date:'2026-07-01T13:00:00-07:00',city:'Seattle',home:'Belgium',away:'Senegal'},
-  {num:83,date:'2026-07-02T19:00:00-04:00',city:'Toronto',home:'Portugal',away:'Croatia'},
-  {num:84,date:'2026-07-02T12:00:00-07:00',city:'Los Angeles (Inglewood)',home:'Spain',away:'Austria'},
-  {num:85,date:'2026-07-02T20:00:00-07:00',city:'Vancouver',home:'Switzerland',away:'Algeria'},
-  {num:86,date:'2026-07-03T18:00:00-04:00',city:'Miami (Miami Gardens)',home:'Argentina',away:'CapeVerde'},
-  {num:87,date:'2026-07-03T20:30:00-05:00',city:'Kansas City',home:'Colombia',away:'Ghana'},
-  {num:88,date:'2026-07-03T13:00:00-05:00',city:'Dallas (Arlington)',home:'Australia',away:'Egypt'},
+  {num:73,date:'2026-06-28T12:00:00-07:00',city:'Los Angeles (Inglewood)',home:'2A',away:'2B'},
+  {num:74,date:'2026-06-29T16:30:00-04:00',city:'Boston (Foxborough)',home:'1E',away:'3A/B/C/D/F'},
+  {num:75,date:'2026-06-29T19:00:00-06:00',city:'Monterrey (Guadalupe)',home:'1F',away:'2C'},
+  {num:76,date:'2026-06-29T12:00:00-05:00',city:'Houston',home:'1C',away:'2F'},
+  {num:77,date:'2026-06-30T17:00:00-04:00',city:'New York/New Jersey (East Rutherford)',home:'1I',away:'3C/D/F/G/H'},
+  {num:78,date:'2026-06-30T12:00:00-05:00',city:'Dallas (Arlington)',home:'2E',away:'2I'},
+  {num:79,date:'2026-06-30T19:00:00-06:00',city:'Mexico City',home:'1A',away:'3C/E/F/H/I'},
+  {num:80,date:'2026-07-01T12:00:00-04:00',city:'Atlanta',home:'1L',away:'3E/H/I/J/K'},
+  {num:81,date:'2026-07-01T17:00:00-07:00',city:'San Francisco Bay Area (Santa Clara)',home:'1D',away:'3B/E/F/I/J'},
+  {num:82,date:'2026-07-01T13:00:00-07:00',city:'Seattle',home:'1G',away:'3A/E/H/I/J'},
+  {num:83,date:'2026-07-02T19:00:00-04:00',city:'Toronto',home:'2K',away:'2L'},
+  {num:84,date:'2026-07-02T12:00:00-07:00',city:'Los Angeles (Inglewood)',home:'1H',away:'2J'},
+  {num:85,date:'2026-07-02T20:00:00-07:00',city:'Vancouver',home:'1B',away:'3E/F/G/I/J'},
+  {num:86,date:'2026-07-03T18:00:00-04:00',city:'Miami (Miami Gardens)',home:'1J',away:'2H'},
+  {num:87,date:'2026-07-03T20:30:00-05:00',city:'Kansas City',home:'1K',away:'3D/E/I/J/L'},
+  {num:88,date:'2026-07-03T13:00:00-05:00',city:'Dallas (Arlington)',home:'2D',away:'2G'},
 ] as const
 
 function useScores(finalOnly=false) {
@@ -344,26 +345,120 @@ function TeamSlot({slot,standings,scoreMap,language}:{slot:string;standings:Grou
   </span>
 }
 
-function KnockoutSection({language,zone,standings,scoreMap}:{language:Language;zone:ZoneKey;standings:GroupStandings;scoreMap:ScoreMap}) {
+const bracketStages: {key:KnockoutStage|'finals'; short:string; es:string; en:string; matchStages:KnockoutStage[]}[] = [
+  {key:'r32',short:'32',es:'Ronda de 32',en:'Round of 32',matchStages:['r32']},
+  {key:'r16',short:'Octavos',es:'Octavos',en:'Round of 16',matchStages:['r16']},
+  {key:'qf',short:'Cuartos',es:'Cuartos',en:'Quarterfinals',matchStages:['qf']},
+  {key:'sf',short:'Semis',es:'Semifinales',en:'Semifinals',matchStages:['sf']},
+  {key:'finals',short:'Final',es:'Final / Tercer puesto',en:'Final / Third place',matchStages:['final','third']},
+]
+
+const stageNextLabel = {
+  es: {r32:'Octavos',r16:'Cuartos',qf:'Semifinales',sf:'Final',third:'cierre',final:'campeón'},
+  en: {r32:'Round of 16',r16:'Quarterfinals',qf:'Semifinals',sf:'Final',third:'wrap-up',final:'champion'},
+} satisfies Record<Language,Record<KnockoutStage,string>>
+
+const bracketStatusCopy = {
+  es: {scheduled:'Programado',live:'En vivo',final:'Finalizado',pending:'Pendiente',updated:'Actualizado hace',minute:'min',now:'ahora',qualified:'Clasificados',liveMatches:'En vivo',finished:'Finalizados',active:'Próxima ronda activa',winner:'Ganador',loser:'Perdedor',advances:'Ganador avanza a'},
+  en: {scheduled:'Scheduled',live:'Live',final:'Final',pending:'Pending',updated:'Updated',minute:'min ago',now:'now',qualified:'Qualified',liveMatches:'Live',finished:'Finished',active:'Next active round',winner:'Winner',loser:'Loser',advances:'Winner advances to'},
+} as const
+
+function useKnockoutBracket() {
+  const initial = () => readCachedKnockout() ?? buildProgressiveBracket(knockoutMatches)
+  const [matches,setMatches] = useState<KnockoutMatch[]>(initial)
+  const [updatedAt,setUpdatedAt] = useState<number>(()=>Date.now())
+  const hasLive = matches.some(match=>match.status==='live')
+  const refreshDelay = autoRefreshKnockout(matches)
+
+  useEffect(()=>{
+    let disposed=false
+    const refresh=async()=>{
+      try {
+        const normalized=normalizeKnockoutData(await fetchWorldCupData())
+        if (disposed) return
+        setMatches(previous=>{
+          const next=updateAfterFinalWhistle(previous,normalized)
+          writeCachedKnockout(next)
+          return next
+        })
+        setUpdatedAt(Date.now())
+      } catch {}
+    }
+    void refresh()
+    const interval=window.setInterval(refresh,refreshDelay)
+    return ()=>{disposed=true;window.clearInterval(interval)}
+  },[hasLive,refreshDelay])
+
+  return {matches,updatedAt}
+}
+
+function slotSource(match:KnockoutMatch, slot:SlotName, language:Language) {
+  const winnerSource=slot==='home' ? match.homeFromMatchId : match.awayFromMatchId
+  const loserSource=slot==='home' ? match.homeFromLoserMatchId : match.awayFromLoserMatchId
+  if (winnerSource) return `${bracketStatusCopy[language].winner} ${language==='es'?'de ':''}Partido ${winnerSource.replace('match-','')}`
+  if (loserSource) return `${bracketStatusCopy[language].loser} ${language==='es'?'de ':''}Partido ${loserSource.replace('match-','')}`
+  return bracketStatusCopy[language].pending
+}
+
+function KnockoutTeamSlot({team,fallback,language}:{team:KnockoutTeam|null;fallback:string;language:Language}) {
+  return <span className={`bracket-team ${team ? 'confirmed' : 'pending'}`}>
+    {team ? <img className="flag" src={`https://flagcdn.com/w40/${flagCodes[team.id]}.png`} alt=""/> : <i/>}
+    <b>{team ? teamNames[team.id]?.[language] ?? team.name : fallback}</b>
+  </span>
+}
+
+function BracketMatchCard({match,language,zone}:{match:KnockoutMatch;language:Language;zone:ZoneKey}) {
+  const statusCopy=bracketStatusCopy[language]
+  const score=match.homeScore!==null && match.awayScore!==null ? `${match.homeScore}-${match.awayScore}` : 'vs'
+  const next=match.stage==='final' ? (language==='es'?'Define campeón':'Defines champion') : match.stage==='third' ? (language==='es'?'Define tercer puesto':'Defines third place') : `${statusCopy.advances} ${stageNextLabel[language][match.stage]}`
+  return <article className={`bracket-match status-${match.status}`}>
+    <header>
+      <span>{match.label}</span>
+      <small><i/>{statusCopy[match.status]}</small>
+    </header>
+    <div className="bracket-teams">
+      <KnockoutTeamSlot team={match.homeTeam} fallback={slotSource(match,'home',language)} language={language}/>
+      <strong>{score}</strong>
+      <KnockoutTeamSlot team={match.awayTeam} fallback={slotSource(match,'away',language)} language={language}/>
+    </div>
+    <footer>
+      <span>{match.kickoff ? `${dateParts({dateTime:match.kickoff},zone,language).short} · ${dateParts({dateTime:match.kickoff},zone,language).time}` : statusCopy.pending}</span>
+      <em>{next}</em>
+    </footer>
+  </article>
+}
+
+function KnockoutSection({language,zone}:{language:Language;zone:ZoneKey}) {
   const t=knockoutCopy[language]
+  const {matches,updatedAt}=useKnockoutBracket()
+  const [activeStage,setActiveStage]=useState<KnockoutStage|'finals'>('r32')
+  const confirmedTeams=new Set(matches.flatMap(match=>[match.homeTeam?.id,match.awayTeam?.id].filter(Boolean)))
+  const liveCount=matches.filter(match=>match.status==='live').length
+  const finishedCount=matches.filter(match=>match.status==='final').length
+  const active=bracketStages.find(stage=>stage.matchStages.some(stageKey=>matches.some(match=>match.stage===stageKey && match.status!=='final')))
+  const updatedMinutes=Math.max(0,Math.floor((Date.now()-updatedAt)/60000))
   return <section className="knockout-section">
-    <header className="section-title"><h2>{t.title}</h2><p><strong>{t.round32}</strong> · {t.subtitle}</p></header>
-    <div className="groups-grid knockout-grid round32-grid">
-      {round32Slots.map(match=><article key={match.num} className="group-card knockout-card">
-        <header className="card-header">
-          <span className="group-badge knockout-badge">{match.num}</span>
-          <h2>{t.round32}</h2>
-          <strong>{dateParts({dateTime:match.date},zone,language).short}</strong>
-        </header>
-        <div className="knockout-matchup">
-          <TeamSlot slot={match.home} standings={standings} scoreMap={scoreMap} language={language}/>
-          <span>{copy[language].vs}</span>
-          <TeamSlot slot={match.away} standings={standings} scoreMap={scoreMap} language={language}/>
-        </div>
-        <footer className="venue"><MapPin aria-hidden="true"/><span>{match.city} · {dateParts({dateTime:match.date},zone,language).time} {language==='es'?'Hora Perú':'Peru time'}</span></footer>
-      </article>)}
+    <header className="section-title bracket-title"><div><h2>{t.title}</h2><p>{t.subtitle}</p></div><small>{bracketStatusCopy[language].updated} {updatedMinutes ? `${updatedMinutes} ${bracketStatusCopy[language].minute}` : bracketStatusCopy[language].now}</small></header>
+    <div className="bracket-summary">
+      <span><b>{confirmedTeams.size}</b>{bracketStatusCopy[language].qualified}</span>
+      <span><b>{liveCount}</b>{bracketStatusCopy[language].liveMatches}</span>
+      <span><b>{finishedCount}</b>{bracketStatusCopy[language].finished}</span>
+      <span><b>{active ? active[language] : bracketStages.at(-1)?.[language]}</b>{bracketStatusCopy[language].active}</span>
+    </div>
+    <nav className="bracket-tabs" aria-label={language==='es'?'Rondas':'Rounds'}>
+      {bracketStages.map(stage=><button key={stage.key} className={activeStage===stage.key?'active':''} type="button" onClick={()=>setActiveStage(stage.key)}>{stage.short}</button>)}
+    </nav>
+    <div className="bracket-board">
+      {bracketStages.map(stage=><section key={stage.key} className={`bracket-column ${activeStage===stage.key?'active':''}`}>
+        <h3>{stage[language]}</h3>
+        <div>{matches.filter(match=>stage.matchStages.includes(match.stage)).map(match=><BracketMatchCard key={match.id} match={match} language={language} zone={zone}/>)}</div>
+      </section>)}
     </div>
   </section>
+}
+
+function renderKnockoutView(language:Language,zone:ZoneKey) {
+  return <KnockoutSection language={language} zone={zone}/>
 }
 
 function SimulationBadge({status,language}:{status:SimulationStatus;language:Language}) {
@@ -595,7 +690,7 @@ function App() {
         <p className="standings-legend">{standingsCopy[language].legend}</p>
         <div className="groups-grid standings-grid">{Object.entries(standings).map(([group,rows])=><StandingGroupCard key={group} group={group} standings={rows} language={language}/>)}</div>
       </section> : null}
-      {section==='knockout' ? <KnockoutSection language={language} zone={zone} standings={standings} scoreMap={scoreMap}/> : null}
+      {section==='knockout' ? renderKnockoutView(language,zone) : null}
       {section==='simulation' ? <SimulationSection language={language} zone={zone} realScoreMap={scoreMap} standings={projectedStandings} simulationDraft={simulationDraft} onDraftChange={updateSimulationDraft} onRecalculate={recalculateSimulation} onRandomize={randomizeSimulation} provisional={hasLiveMatches}/> : null}
     </main>
 
