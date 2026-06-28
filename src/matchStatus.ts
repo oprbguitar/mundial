@@ -10,6 +10,7 @@ const listeners = new Set<()=>void>()
 export function getMatchStatus(match: Match, score: string | null | undefined, now = Date.now(), sourceStatus?: Status): Status {
   if (sourceStatus === 'finished' || match.status === 'finished') return 'finished'
   if (sourceStatus === 'live') return 'live'
+  if (sourceStatus === 'scheduled' || match.status === 'scheduled') return 'scheduled'
   const kickoff = new Date(match.dateTime).getTime()
   return now >= kickoff && now <= kickoff + MATCH_WINDOW_MS ? 'live' : 'scheduled'
 }

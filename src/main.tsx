@@ -346,7 +346,7 @@ function TeamSlot({slot,standings,scoreMap,language}:{slot:string;standings:Grou
 }
 
 const bracketStages: {key:KnockoutStage|'finals'; short:string; es:string; en:string; matchStages:KnockoutStage[]}[] = [
-  {key:'r32',short:'32',es:'Ronda de 32',en:'Round of 32',matchStages:['r32']},
+  {key:'r32',short:'32',es:'Ronda de 32 (16avos)',en:'Round of 32',matchStages:['r32']},
   {key:'r16',short:'Octavos',es:'Octavos',en:'Round of 16',matchStages:['r16']},
   {key:'qf',short:'Cuartos',es:'Cuartos',en:'Quarterfinals',matchStages:['qf']},
   {key:'sf',short:'Semis',es:'Semifinales',en:'Semifinals',matchStages:['sf']},
