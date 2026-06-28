@@ -16,6 +16,60 @@
     "source": "manual-public-result"
   },
   {
+    "homeTeamId": "egypt",
+    "awayTeamId": "iran",
+    "group": "G",
+    "date": "2026-06-26",
+    "score": "1-1",
+    "status": "finished",
+    "source": "manual-public-result"
+  },
+  {
+    "homeTeamId": "newzealand",
+    "awayTeamId": "belgium",
+    "group": "G",
+    "date": "2026-06-26",
+    "score": "1-5",
+    "status": "finished",
+    "source": "manual-public-result"
+  },
+  {
+    "homeTeamId": "cape_verde",
+    "awayTeamId": "saudiarabia",
+    "group": "H",
+    "date": "2026-06-26",
+    "score": "0-0",
+    "status": "finished",
+    "source": "manual-public-result"
+  },
+  {
+    "homeTeamId": "uruguay",
+    "awayTeamId": "spain",
+    "group": "H",
+    "date": "2026-06-26",
+    "score": "0-1",
+    "status": "finished",
+    "source": "manual-public-result"
+  },
+  {
+    "homeTeamId": "algeria",
+    "awayTeamId": "austria",
+    "group": "J",
+    "date": "2026-06-27",
+    "score": "3-3",
+    "status": "finished",
+    "source": "manual-public-result"
+  },
+  {
+    "homeTeamId": "jordan",
+    "awayTeamId": "argentina",
+    "group": "J",
+    "date": "2026-06-27",
+    "score": "1-3",
+    "status": "finished",
+    "source": "manual-public-result"
+  },
+  {
     "homeTeamId": "colombia",
     "awayTeamId": "portugal",
     "group": "K",
