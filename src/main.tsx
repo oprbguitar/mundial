@@ -106,6 +106,7 @@ const simulationCopy = {
 } as const
 
 const PREDICTION_STORAGE_KEY = 'partidos-2026-knockout-prediction-v1'
+const KNOCKOUT_LIVE_WINDOW_MS = 150 * 60 * 1000
 
 const round32Slots = [
   {num:73,date:'2026-06-28T12:00:00-07:00',city:'Los Angeles (Inglewood)',home:'2A',away:'2B'},
@@ -356,8 +357,8 @@ const stageNextLabel = {
 } satisfies Record<Language,Record<KnockoutStage,string>>
 
 const bracketStatusCopy = {
-  es: {scheduled:'Programado',live:'En vivo',final:'Finalizado',pending:'Pendiente',updated:'Actualizado hace',minute:'min',now:'ahora',qualified:'Clasificados',liveMatches:'En vivo',finished:'Finalizados',active:'Próxima ronda activa',winner:'Ganador',loser:'Perdedor',advances:'Ganador avanza a'},
-  en: {scheduled:'Scheduled',live:'Live',final:'Final',pending:'Pending',updated:'Updated',minute:'min ago',now:'now',qualified:'Qualified',liveMatches:'Live',finished:'Finished',active:'Next active round',winner:'Winner',loser:'Loser',advances:'Winner advances to'},
+  es: {scheduled:'Programado',live:'En vivo',final:'Finalizado',pending:'Pendiente',updated:'Actualizado hace',minute:'min',now:'ahora',qualified:'Clasificados',liveMatches:'Partido en vivo',finished:'Finalizados',active:'Próxima ronda activa',winner:'Ganador',loser:'Perdedor',advances:'Ganador avanza a'},
+  en: {scheduled:'Scheduled',live:'Live',final:'Final',pending:'Pending',updated:'Updated',minute:'min ago',now:'now',qualified:'Qualified',liveMatches:'Live match',finished:'Finished',active:'Next active round',winner:'Winner',loser:'Loser',advances:'Winner advances to'},
 } as const
 
 function useKnockoutBracket() {
@@ -461,6 +462,13 @@ function slotSource(match:KnockoutMatch, slot:SlotName, language:Language) {
   return bracketStatusCopy[language].pending
 }
 
+function effectiveKnockoutStatus(match:KnockoutMatch, now:number) {
+  if (match.status==='final' || match.status==='live') return match.status
+  if (!match.kickoff || !match.homeTeam || !match.awayTeam) return match.status
+  const kickoff=new Date(match.kickoff).getTime()
+  return now>=kickoff && now<=kickoff+KNOCKOUT_LIVE_WINDOW_MS ? 'live' : match.status
+}
+
 function KnockoutTeamSlot({team,fallback,language}:{team:KnockoutTeam|null;fallback:string;language:Language}) {
   return <span className={`bracket-team ${team ? 'confirmed' : 'pending'}`}>
     {team ? <img className="flag" src={`https://flagcdn.com/w40/${flagCodes[team.id]}.png`} alt=""/> : <i/>}
@@ -468,14 +476,15 @@ function KnockoutTeamSlot({team,fallback,language}:{team:KnockoutTeam|null;fallb
   </span>
 }
 
-function BracketMatchCard({match,language,zone}:{match:KnockoutMatch;language:Language;zone:ZoneKey}) {
+function BracketMatchCard({match,language,zone,now}:{match:KnockoutMatch;language:Language;zone:ZoneKey;now:number}) {
   const statusCopy=bracketStatusCopy[language]
+  const status=effectiveKnockoutStatus(match,now)
   const score=match.homeScore!==null && match.awayScore!==null ? `${match.homeScore}-${match.awayScore}` : 'vs'
   const next=match.stage==='final' ? (language==='es'?'Define campeón':'Defines champion') : match.stage==='third' ? (language==='es'?'Define tercer puesto':'Defines third place') : `${statusCopy.advances} ${stageNextLabel[language][match.stage]}`
-  return <article className={`bracket-match status-${match.status}`}>
+  return <article className={`bracket-match status-${status}`}>
     <header>
       <span>{match.label}</span>
-      <small><i/>{statusCopy[match.status]}</small>
+      <small><i/>{statusCopy[status]}</small>
     </header>
     <div className="bracket-teams">
       <KnockoutTeamSlot team={match.homeTeam} fallback={slotSource(match,'home',language)} language={language}/>
@@ -492,10 +501,11 @@ function BracketMatchCard({match,language,zone}:{match:KnockoutMatch;language:La
 function KnockoutSection({language,zone,matches,updatedAt}:{language:Language;zone:ZoneKey;matches:KnockoutMatch[];updatedAt:number}) {
   const t=knockoutCopy[language]
   const [activeStage,setActiveStage]=useState<KnockoutStage|'finals'>('r32')
+  const now = useSyncExternalStore(subscribeToMinute,getMinuteSnapshot,getMinuteSnapshot)
   const confirmedTeams=new Set(matches.flatMap(match=>[match.homeTeam?.id,match.awayTeam?.id].filter(Boolean)))
-  const liveCount=matches.filter(match=>match.status==='live').length
+  const liveCount=matches.filter(match=>effectiveKnockoutStatus(match,now)==='live').length
   const finishedCount=matches.filter(match=>match.status==='final').length
-  const active=bracketStages.find(stage=>stage.matchStages.some(stageKey=>matches.some(match=>match.stage===stageKey && match.status!=='final')))
+  const active=bracketStages.find(stage=>stage.matchStages.some(stageKey=>matches.some(match=>match.stage===stageKey && effectiveKnockoutStatus(match,now)!=='final')))
   const updatedMinutes=Math.max(0,Math.floor((Date.now()-updatedAt)/60000))
   return <section className="knockout-section">
     <header className="section-title bracket-title"><div><h2>{t.title}</h2><p>{t.subtitle}</p></div><small>{bracketStatusCopy[language].updated} {updatedMinutes ? `${updatedMinutes} ${bracketStatusCopy[language].minute}` : bracketStatusCopy[language].now}</small></header>
@@ -511,7 +521,7 @@ function KnockoutSection({language,zone,matches,updatedAt}:{language:Language;zo
     <div className="bracket-board">
       {bracketStages.map(stage=><section key={stage.key} className={`bracket-column ${activeStage===stage.key?'active':''}`}>
         <h3>{stage[language]}</h3>
-        <div>{matches.filter(match=>stage.matchStages.includes(match.stage)).map(match=><BracketMatchCard key={match.id} match={match} language={language} zone={zone}/>)}</div>
+        <div>{matches.filter(match=>stage.matchStages.includes(match.stage)).map(match=><BracketMatchCard key={match.id} match={match} language={language} zone={zone} now={now}/>)}</div>
       </section>)}
     </div>
   </section>
@@ -527,9 +537,9 @@ function SimulationBadge({status,language}:{status:SimulationStatus;language:Lan
   return <small className={`simulation-badge badge-${status}`}>{label}</small>
 }
 
-function simulationStatus(match:KnockoutMatch,predictions:PredictionMap):SimulationStatus {
+function simulationStatus(match:KnockoutMatch,predictions:PredictionMap,now:number):SimulationStatus {
   if (match.status==='final') return 'real'
-  if (match.status==='live') return 'live'
+  if (effectiveKnockoutStatus(match,now)==='live') return 'live'
   return match.winnerTeam && predictions[match.id] ? 'prediction' : 'pending'
 }
 
@@ -541,13 +551,14 @@ function SimulationTeamButton({team,selected,disabled,language,onSelect}:{team:K
   </button>
 }
 
-function SimulationMatchCard({match,language,zone,predictions,onSelect}:{match:KnockoutMatch;language:Language;zone:ZoneKey;predictions:PredictionMap;onSelect:(matchId:string,winnerId:string)=>void}) {
+function SimulationMatchCard({match,language,zone,predictions,onSelect,now}:{match:KnockoutMatch;language:Language;zone:ZoneKey;predictions:PredictionMap;onSelect:(matchId:string,winnerId:string)=>void;now:number}) {
   const t=simulationCopy[language]
-  const status=simulationStatus(match,predictions)
-  const locked=match.status==='final' || match.status==='live' || !match.homeTeam || !match.awayTeam
+  const effectiveStatus=effectiveKnockoutStatus(match,now)
+  const status=simulationStatus(match,predictions,now)
+  const locked=match.status==='final' || effectiveStatus==='live' || !match.homeTeam || !match.awayTeam
   const selected=match.winnerTeam?.id ?? predictions[match.id] ?? ''
   const score=match.homeScore!==null && match.awayScore!==null ? `${match.homeScore}-${match.awayScore}` : copy[language].vs
-  return <article className={`bracket-match simulation-route-card status-${match.status}`}>
+  return <article className={`bracket-match simulation-route-card status-${effectiveStatus}`}>
     <header>
       <span>{match.label}</span>
       <SimulationBadge status={status} language={language}/>
@@ -582,6 +593,7 @@ function PredictionPodium({matches,language}:{matches:KnockoutMatch[];language:L
 
 function SimulationSection({language,zone,matches,predictions,onSelect,onSimulate,onReset}:{language:Language;zone:ZoneKey;matches:KnockoutMatch[];predictions:PredictionMap;onSelect:(matchId:string,winnerId:string)=>void;onSimulate:()=>void;onReset:()=>void}) {
   const t=simulationCopy[language]
+  const now = useSyncExternalStore(subscribeToMinute,getMinuteSnapshot,getMinuteSnapshot)
   return <section className="simulation-section">
     <header className="section-title simulation-title">
       <h2>{t.title}</h2>
@@ -602,7 +614,7 @@ function SimulationSection({language,zone,matches,predictions,onSelect,onSimulat
         <div className="simulation-route-board">
           {bracketStages.map(stage=><section key={stage.key} className="simulation-route-column">
             <h3>{stage[language]}</h3>
-            <div>{matches.filter(match=>stage.matchStages.includes(match.stage)).map(match=><SimulationMatchCard key={match.id} match={match} language={language} zone={zone} predictions={predictions} onSelect={onSelect}/>)}</div>
+            <div>{matches.filter(match=>stage.matchStages.includes(match.stage)).map(match=><SimulationMatchCard key={match.id} match={match} language={language} zone={zone} predictions={predictions} onSelect={onSelect} now={now}/>)}</div>
           </section>)}
         </div>
       </aside>
@@ -679,7 +691,7 @@ function App() {
   const groups = useMemo(()=>Object.values(visible.reduce<Record<string,Match[]>>((acc,match)=>{(acc[match.group]??=[]).push(match); return acc},{})),[visible])
   const standings = useMemo(()=>calculateStandings(scoreMap,language),[scoreMap,language])
   const hasLiveMatches = allGroupMatches.some(match=>getMatchStatus(match,displayScoreMap[match.id],now,getStatusSnapshot(match.id))==='live')
-  const knockoutLiveCount = knockoutBracket.filter(match=>match.status==='live').length
+  const knockoutLiveCount = knockoutBracket.filter(match=>effectiveKnockoutStatus(match,now)==='live').length
   const hasAnyLiveMatch = hasLiveMatches || knockoutLiveCount > 0
   const predictionResult = useMemo(()=>applyKnockoutPredictions(knockoutBracket,predictions),[knockoutBracket,predictions])
   const range = useMemo(()=>{
