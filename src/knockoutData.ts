@@ -34,6 +34,7 @@ export interface KnockoutMatch {
 
 interface SourceScore {
   ft?: [number, number]
+  et?: [number, number]
   current?: [number, number]
   live?: [number, number]
   p?: [number, number]
@@ -58,7 +59,7 @@ interface SourceData {
 
 const REMOTE_DATA_URL = 'https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json'
 const LOCAL_STORAGE_KEY = 'partidos-2026-knockout'
-const LOCAL_STORAGE_VERSION = 'knockout-v2'
+const LOCAL_STORAGE_VERSION = 'knockout-v3'
 
 const teamAliases: Record<string, string[]> = {
   Mexico: ['Mexico', 'México'],
@@ -166,7 +167,7 @@ function stageFromRound(round = ''): KnockoutStage | null {
 
 function normalizeStatus(match: SourceMatch): KnockoutStatus {
   const value = normalize(match.status ?? '')
-  if (/^(final|ft|fulltime|complete|completed|finished)$/.test(value) || match.score?.ft) return 'final'
+  if (/^(final|ft|fulltime|complete|completed|finished)$/.test(value) || match.score?.et || match.score?.ft) return 'final'
   if (/^(live|inplay|playing|halftime|ht|1sthalf|2ndhalf)$/.test(value) || match.score?.current || match.score?.live) return 'live'
   return 'scheduled'
 }
@@ -246,7 +247,7 @@ export function normalizeKnockoutData(rawData: SourceData): KnockoutMatch[] {
     const id = sourceId(item.num)
     const target = id ? map.get(id) : undefined
     if (!stage || !target) continue
-    const score = scoreTuple(item.score?.ft ?? item.score?.current ?? item.score?.live)
+    const score = scoreTuple(item.score?.et ?? item.score?.ft ?? item.score?.current ?? item.score?.live)
     const penalties = scoreTuple(item.score?.penalties ?? item.score?.p)
     const homeDependency = dependencyFromSource(item.team1)
     const awayDependency = dependencyFromSource(item.team2)

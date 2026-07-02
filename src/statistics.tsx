@@ -10,6 +10,7 @@ const LIVE_WINDOW_MS = 150 * 60 * 1000
 
 type SourceScore = {
   ft?: [number, number]
+  et?: [number, number]
   ht?: [number, number]
   current?: [number, number]
   live?: [number, number]
@@ -117,14 +118,14 @@ function scoreTuple(value:[number,number]|undefined):[number,number]|null {
 
 function normalizeStatus(match:SourceMatch, now=Date.now()):MatchStatus {
   const value=normalize(match.status ?? '')
-  if (match.score?.ft || /^(final|ft|fulltime|complete|completed|finished)$/.test(value)) return 'final'
+  if (match.score?.et || match.score?.ft || /^(final|ft|fulltime|complete|completed|finished)$/.test(value)) return 'final'
   if (match.score?.current || match.score?.live || /^(live|inplay|playing|halftime|ht|1sthalf|2ndhalf)$/.test(value)) return 'live'
   const kickoff=parseKickoff(match)
   return kickoff && now>=kickoff && now<=kickoff+LIVE_WINDOW_MS ? 'live' : 'scheduled'
 }
 
 function scoreFor(match:SourceMatch) {
-  return scoreTuple(match.score?.ft) ?? scoreTuple(match.score?.current) ?? scoreTuple(match.score?.live)
+  return scoreTuple(match.score?.et) ?? scoreTuple(match.score?.ft) ?? scoreTuple(match.score?.current) ?? scoreTuple(match.score?.live)
 }
 
 async function fetchJson<T>(url:string) {
