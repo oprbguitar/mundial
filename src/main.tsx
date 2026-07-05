@@ -500,7 +500,7 @@ function BracketMatchCard({match,language,zone,now}:{match:KnockoutMatch;languag
 
 function KnockoutSection({language,zone,matches,updatedAt}:{language:Language;zone:ZoneKey;matches:KnockoutMatch[];updatedAt:number}) {
   const t=knockoutCopy[language]
-  const [activeStage,setActiveStage]=useState<KnockoutStage|'finals'>('r32')
+  const [activeStage,setActiveStage]=useState<KnockoutStage|'finals'>('r16')
   const now = useSyncExternalStore(subscribeToMinute,getMinuteSnapshot,getMinuteSnapshot)
   const confirmedTeams=new Set(matches.flatMap(match=>[match.homeTeam?.id,match.awayTeam?.id].filter(Boolean)))
   const liveCount=matches.filter(match=>effectiveKnockoutStatus(match,now)==='live').length
@@ -516,7 +516,7 @@ function KnockoutSection({language,zone,matches,updatedAt}:{language:Language;zo
       <span><b>{active ? active[language] : bracketStages.at(-1)?.[language]}</b>{bracketStatusCopy[language].active}</span>
     </div>
     <nav className="bracket-tabs" aria-label={language==='es'?'Rondas':'Rounds'}>
-      {bracketStages.map(stage=><button key={stage.key} className={activeStage===stage.key?'active':''} type="button" onClick={()=>setActiveStage(stage.key)}>{stage.short}</button>)}
+      {bracketStages.map(stage=><button key={stage.key} className={`${activeStage===stage.key?'active':''} ${stage.key==='r16'?'attention-blink':''}`.trim()} type="button" onClick={()=>setActiveStage(stage.key)}>{stage.short}</button>)}
     </nav>
     <div className="bracket-board">
       {bracketStages.map(stage=><section key={stage.key} className={`bracket-column ${activeStage===stage.key?'active':''}`}>
