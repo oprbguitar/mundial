@@ -43,35 +43,40 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       (() => {
-        const installQuarterfinalStyles = () => {
-          if (document.getElementById('quarterfinal-default-style')) return
+        const installSemifinalStyles = () => {
+          if (document.getElementById('semifinal-default-style')) return
           const style = document.createElement('style')
-          style.id = 'quarterfinal-default-style'
+          style.id = 'semifinal-default-style'
           style.textContent = `
             @media (max-width:700px){
               .bracket-tabs button.attention-blink{animation:none!important}
-              .bracket-tabs button:nth-child(3){animation:quarterfinal-tab-blink 1.15s ease-in-out infinite!important}
+              .bracket-tabs button:nth-child(4){animation:semifinal-tab-blink 1.15s ease-in-out infinite!important}
             }
-            @keyframes quarterfinal-tab-blink{0%,100%{opacity:1;box-shadow:inset 0 0 0 1px #f4b23e,0 0 0 rgba(244,178,62,0)}50%{opacity:.58;box-shadow:inset 0 0 0 1px #ffd86b,0 0 12px rgba(244,178,62,.75)}}
-            @media (prefers-reduced-motion:reduce){.bracket-tabs button:nth-child(3){animation:none!important}}
+            @keyframes semifinal-tab-blink{0%,100%{opacity:1;box-shadow:inset 0 0 0 1px #f4b23e,0 0 0 rgba(244,178,62,0)}50%{opacity:.58;box-shadow:inset 0 0 0 1px #ffd86b,0 0 12px rgba(244,178,62,.75)}}
+            @media (prefers-reduced-motion:reduce){.bracket-tabs button:nth-child(4){animation:none!important}}
           `
           document.head.appendChild(style)
         }
 
-        const activateQuarterfinals = () => {
-          installQuarterfinalStyles()
+        const activateSemifinals = () => {
+          installSemifinalStyles()
           const tabs = Array.from(document.querySelectorAll('.bracket-tabs button'))
-          const quarterfinals = tabs.find(button => button.textContent?.trim() === 'Cuartos')
-          if (!quarterfinals) return false
-          if (!quarterfinals.classList.contains('active')) quarterfinals.click()
+          const semifinals = tabs.find(button => button.textContent?.trim() === 'Semis')
+          if (!semifinals) return false
+          if (!semifinals.classList.contains('active')) semifinals.click()
+          window.requestAnimationFrame(() => {
+            const activeRound = document.querySelector('.bracket-column.active')
+            activeRound?.scrollIntoView({ behavior:'auto', block:'start' })
+          })
           return true
         }
 
         const boot = () => {
-          if (activateQuarterfinals()) return
+          window.history.scrollRestoration = 'manual'
+          if (activateSemifinals()) return
           const root = document.getElementById('root') || document.body
           const observer = new MutationObserver(() => {
-            if (activateQuarterfinals()) observer.disconnect()
+            if (activateSemifinals()) observer.disconnect()
           })
           observer.observe(root,{ childList:true, subtree:true })
           window.setTimeout(() => observer.disconnect(),5000)
@@ -79,6 +84,7 @@
 
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',boot,{ once:true })
         else boot()
+        window.addEventListener('pageshow',activateSemifinals)
       })()
     </script>
   </body>
