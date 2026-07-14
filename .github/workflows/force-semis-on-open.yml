@@ -1,0 +1,91 @@
+name: Force semifinals on page open
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/force-semis-on-open.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Force Semis on initial load and browser restore
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/main.tsx')
+          content = path.read_text(encoding='utf-8')
+
+          state_block = """  const [activeStage,setActiveStage]=useState<KnockoutStage|'finals'>('sf')
+  const now = useSyncExternalStore(subscribeToMinute,getMinuteSnapshot,getMinuteSnapshot)
+"""
+
+          replacement = """  const [activeStage,setActiveStage]=useState<KnockoutStage|'finals'>('sf')
+
+  useEffect(()=>{
+    const previousScrollRestoration = window.history.scrollRestoration
+    window.history.scrollRestoration = 'manual'
+
+    const openSemifinals = ()=>{
+      setActiveStage('sf')
+      window.requestAnimationFrame(()=>{
+        document.getElementById('semifinales')?.scrollIntoView({behavior:'auto',block:'start'})
+      })
+    }
+
+    openSemifinals()
+    const settleTimer = window.setTimeout(openSemifinals,250)
+    window.addEventListener('pageshow',openSemifinals)
+
+    return ()=>{
+      window.clearTimeout(settleTimer)
+      window.removeEventListener('pageshow',openSemifinals)
+      window.history.scrollRestoration = previousScrollRestoration
+    }
+  },[])
+
+  const now = useSyncExternalStore(subscribeToMinute,getMinuteSnapshot,getMinuteSnapshot)
+"""
+
+          if "document.getElementById('semifinales')" not in content:
+              if state_block not in content:
+                  raise SystemExit('Expected KnockoutSection state block was not found')
+              content = content.replace(state_block, replacement, 1)
+
+          section_old = """{bracketStages.map(stage=><section key={stage.key} className={`bracket-column ${activeStage===stage.key?'active':''}`}>
+"""
+          section_new = """{bracketStages.map(stage=><section key={stage.key} id={stage.key==='sf'?'semifinales':undefined} className={`bracket-column ${activeStage===stage.key?'active':''}`}>
+"""
+
+          if "id={stage.key==='sf'?'semifinales':undefined}" not in content:
+              if section_old not in content:
+                  raise SystemExit('Expected bracket column expression was not found')
+              content = content.replace(section_old, section_new, 1)
+
+          path.write_text(content, encoding='utf-8')
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Commit verified change and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.tsx
+          git rm .github/workflows/force-semis-on-open.yml
+          git commit -m "Force semifinals view when opening the page"
+          git push
