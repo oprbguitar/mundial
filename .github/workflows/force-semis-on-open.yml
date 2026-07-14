@@ -89,3 +89,5 @@ jobs:
           git rm .github/workflows/force-semis-on-open.yml
           git commit -m "Force semifinals view when opening the page"
           git push
+
+# Triggered after workflow registration
