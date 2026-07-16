@@ -43,27 +43,27 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       (() => {
-        const installSemifinalStyles = () => {
-          if (document.getElementById('semifinal-default-style')) return
+        const installFinalStyles = () => {
+          if (document.getElementById('final-default-style')) return
           const style = document.createElement('style')
-          style.id = 'semifinal-default-style'
+          style.id = 'final-default-style'
           style.textContent = `
             @media (max-width:700px){
               .bracket-tabs button.attention-blink{animation:none!important}
-              .bracket-tabs button:nth-child(4){animation:semifinal-tab-blink 1.15s ease-in-out infinite!important}
+              .bracket-tabs button:nth-child(5){animation:final-tab-blink 1.15s ease-in-out infinite!important}
             }
-            @keyframes semifinal-tab-blink{0%,100%{opacity:1;box-shadow:inset 0 0 0 1px #f4b23e,0 0 0 rgba(244,178,62,0)}50%{opacity:.58;box-shadow:inset 0 0 0 1px #ffd86b,0 0 12px rgba(244,178,62,.75)}}
-            @media (prefers-reduced-motion:reduce){.bracket-tabs button:nth-child(4){animation:none!important}}
+            @keyframes final-tab-blink{0%,100%{opacity:1;box-shadow:inset 0 0 0 1px #f4b23e,0 0 0 rgba(244,178,62,0)}50%{opacity:.58;box-shadow:inset 0 0 0 1px #ffd86b,0 0 12px rgba(244,178,62,.75)}}
+            @media (prefers-reduced-motion:reduce){.bracket-tabs button:nth-child(5){animation:none!important}}
           `
           document.head.appendChild(style)
         }
 
-        const activateSemifinals = () => {
-          installSemifinalStyles()
+        const activateFinals = () => {
+          installFinalStyles()
           const tabs = Array.from(document.querySelectorAll('.bracket-tabs button'))
-          const semifinals = tabs.find(button => button.textContent?.trim() === 'Semis')
-          if (!semifinals) return false
-          if (!semifinals.classList.contains('active')) semifinals.click()
+          const finalTab = tabs.find(button => button.textContent?.trim() === 'Final')
+          if (!finalTab) return false
+          if (!finalTab.classList.contains('active')) finalTab.click()
           window.requestAnimationFrame(() => {
             const activeRound = document.querySelector('.bracket-column.active')
             activeRound?.scrollIntoView({ behavior:'auto', block:'start' })
@@ -73,10 +73,10 @@
 
         const boot = () => {
           window.history.scrollRestoration = 'manual'
-          if (activateSemifinals()) return
+          if (activateFinals()) return
           const root = document.getElementById('root') || document.body
           const observer = new MutationObserver(() => {
-            if (activateSemifinals()) observer.disconnect()
+            if (activateFinals()) observer.disconnect()
           })
           observer.observe(root,{ childList:true, subtree:true })
           window.setTimeout(() => observer.disconnect(),5000)
@@ -84,7 +84,7 @@
 
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',boot,{ once:true })
         else boot()
-        window.addEventListener('pageshow',activateSemifinals)
+        window.addEventListener('pageshow',activateFinals)
       })()
     </script>
   </body>
