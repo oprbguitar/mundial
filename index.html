@@ -7,7 +7,7 @@
     <meta name="description" content="España, campeona del Mundial 2026 tras vencer 1-0 a Argentina en la final. Consulta el cuadro, resultados, horarios, sedes y posiciones." />
     <meta name="robots" content="index, follow" />
     <meta name="author" content="Pierre R." />
-    <meta name="keywords" content="España campeón Mundial 2026, final España Argentina, Mundial 2026, resultados Mundial 2026, eliminatorias Mundial 2026" />
+    <meta name="keywords" content="España campeona Mundial 2026, final España Argentina, Mundial 2026, resultados Mundial 2026, eliminatorias Mundial 2026" />
     <link rel="canonical" href="https://oprbguitar.github.io/mundial/" />
     <link rel="icon" type="image/svg+xml" href="/mundial/favicon.svg" />
     <meta property="og:title" content="España campeona del Mundial 2026" />
@@ -107,11 +107,11 @@
       (() => {
         const champion = {
           es: {
-            eyebrow: 'Campeón del mundo 2026',
+            eyebrow: 'Campeona del mundo 2026',
             name: 'ESPAÑA',
             detail: 'España 1–0 Argentina · Tiempo extra · Ferran Torres 106′',
             status: 'Finalizado',
-            footer: 'España campeón del mundo 2026',
+            footer: 'España, campeona del mundo 2026',
           },
           en: {
             eyebrow: '2026 world champion',
@@ -128,11 +128,14 @@
           const tabs = Array.from(document.querySelectorAll('.bracket-tabs button'))
           const finalTab = tabs.find(button => button.textContent?.trim() === 'Final')
           if (!finalTab) return false
-          if (!finalTab.classList.contains('active')) finalTab.click()
-          window.requestAnimationFrame(() => {
-            const activeRound = document.querySelector('.bracket-column.active')
-            activeRound?.scrollIntoView({ behavior:'auto', block:'start' })
-          })
+          const shouldActivate = !finalTab.classList.contains('active')
+          if (shouldActivate) {
+            finalTab.click()
+            window.requestAnimationFrame(() => {
+              const activeRound = document.querySelector('.bracket-column.active')
+              activeRound?.scrollIntoView({ behavior:'auto', block:'start' })
+            })
+          }
           return true
         }
 
@@ -146,19 +149,22 @@
           if (!banner) {
             banner = document.createElement('section')
             banner.className = 'world-champion-banner'
-            banner.setAttribute('aria-label', text.eyebrow)
             const summary = section.querySelector('.bracket-summary')
             section.insertBefore(banner, summary || section.firstChild)
           }
-          banner.innerHTML = `
-            <span class="champion-trophy" aria-hidden="true">🏆</span>
-            <span class="champion-copy">
-              <small>${text.eyebrow}</small>
-              <strong>${text.name}</strong>
-              <span>${text.detail}</span>
-            </span>
-            <img class="champion-flag" src="https://flagcdn.com/w160/es.png" alt="${text.name}" />
-          `
+          if (banner.dataset.language !== language) {
+            banner.dataset.language = language
+            banner.setAttribute('aria-label', text.eyebrow)
+            banner.innerHTML = `
+              <span class="champion-trophy" aria-hidden="true">🏆</span>
+              <span class="champion-copy">
+                <small>${text.eyebrow}</small>
+                <strong>${text.name}</strong>
+                <span>${text.detail}</span>
+              </span>
+              <img class="champion-flag" src="https://flagcdn.com/w160/es.png" alt="${text.name}" />
+            `
+          }
 
           const cards = Array.from(section.querySelectorAll('.bracket-match'))
           const finalCard = cards.find(card => card.querySelector('header span')?.textContent?.trim() === 'Partido 104')
@@ -168,24 +174,25 @@
           finalCard.classList.add('status-final','champion-final-card')
 
           const status = finalCard.querySelector('header small')
-          if (status) status.innerHTML = `<i></i>${text.status}`
+          if (status && status.textContent?.trim() !== text.status) status.innerHTML = `<i></i>${text.status}`
 
           const slots = finalCard.querySelectorAll('.bracket-team')
+          const homeName = language === 'es' ? 'España' : 'Spain'
           if (slots[0]) {
             slots[0].classList.remove('pending')
             slots[0].classList.add('confirmed')
-            slots[0].innerHTML = `<img class="flag" src="https://flagcdn.com/w40/es.png" alt=""><b>${language === 'es' ? 'España' : 'Spain'}</b>`
+            if (slots[0].querySelector('b')?.textContent !== homeName) slots[0].innerHTML = `<img class="flag" src="https://flagcdn.com/w40/es.png" alt=""><b>${homeName}</b>`
           }
           if (slots[1]) {
             slots[1].classList.remove('pending')
             slots[1].classList.add('confirmed')
-            slots[1].innerHTML = `<img class="flag" src="https://flagcdn.com/w40/ar.png" alt=""><b>Argentina</b>`
+            if (slots[1].querySelector('b')?.textContent !== 'Argentina') slots[1].innerHTML = '<img class="flag" src="https://flagcdn.com/w40/ar.png" alt=""><b>Argentina</b>'
           }
 
           const score = finalCard.querySelector('.bracket-teams > strong')
-          if (score) score.textContent = '1-0'
+          if (score && score.textContent !== '1-0') score.textContent = '1-0'
           const footer = finalCard.querySelector('footer em')
-          if (footer) footer.textContent = text.footer
+          if (footer && footer.textContent !== text.footer) footer.textContent = text.footer
           return true
         }
 
@@ -209,6 +216,9 @@
           })
           observer.observe(root,{ childList:true, subtree:true })
           window.setTimeout(() => observer.disconnect(),15000)
+          document.addEventListener('click', event => {
+            if (event.target instanceof Element && event.target.closest('.language-globe')) window.setTimeout(refreshChampionView,0)
+          })
         }
 
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',boot,{ once:true })
