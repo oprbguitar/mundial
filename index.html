@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#00163f" />
-    <meta name="description" content="Calendario del Mundial 2026 con partidos por grupo, horarios, sedes, estados, posiciones y eliminatorias." />
+    <meta name="description" content="España, campeona del Mundial 2026 tras vencer 1-0 a Argentina en la final. Consulta el cuadro, resultados, horarios, sedes y posiciones." />
     <meta name="robots" content="index, follow" />
     <meta name="author" content="Pierre R." />
-    <meta name="keywords" content="Mundial 2026, partidos Mundial 2026, posiciones Mundial 2026, eliminatorias Mundial 2026, calendario Mundial, horarios, sedes, grupos" />
+    <meta name="keywords" content="España campeón Mundial 2026, final España Argentina, Mundial 2026, resultados Mundial 2026, eliminatorias Mundial 2026" />
     <link rel="canonical" href="https://oprbguitar.github.io/mundial/" />
     <link rel="icon" type="image/svg+xml" href="/mundial/favicon.svg" />
-    <meta property="og:title" content="Partidos 2026 · Calendario y posiciones" />
-    <meta property="og:description" content="Consulta partidos por grupo, horarios, sedes, estados, posiciones y fase de eliminación directa del Mundial 2026." />
+    <meta property="og:title" content="España campeona del Mundial 2026" />
+    <meta property="og:description" content="España venció 1-0 a Argentina en tiempo extra y conquistó el Mundial 2026." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://oprbguitar.github.io/mundial/" />
     <meta property="og:site_name" content="Partidos 2026" />
@@ -20,13 +20,13 @@
     <meta property="og:image:type" content="image/svg+xml" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Partidos 2026: calendario, horarios, posiciones y eliminatorias del Mundial 2026" />
+    <meta property="og:image:alt" content="España campeona del Mundial 2026" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Partidos 2026 · Calendario y posiciones" />
-    <meta name="twitter:description" content="Partidos por grupo, horarios, sedes, estados, posiciones y eliminatorias del Mundial 2026." />
+    <meta name="twitter:title" content="España campeona del Mundial 2026" />
+    <meta name="twitter:description" content="España 1-0 Argentina · Final del Mundial 2026." />
     <meta name="twitter:image" content="https://oprbguitar.github.io/mundial/og-image.svg" />
     <script type="application/ld+json">
-      {"@context":"https://schema.org","@type":"WebSite","name":"Partidos 2026","url":"https://oprbguitar.github.io/mundial/","description":"Calendario del Mundial 2026 con partidos por grupo, horarios, sedes, estados, posiciones y eliminatorias.","inLanguage":"es-PE"}
+      {"@context":"https://schema.org","@type":"WebSite","name":"Partidos 2026","url":"https://oprbguitar.github.io/mundial/","description":"España, campeona del Mundial 2026 tras vencer 1-0 a Argentina en la final.","inLanguage":"es-PE"}
     </script>
     <style>
       .status-dot.scheduled{background:#2aa04f;box-shadow:0 0 0 3px rgba(42,160,79,.16)}
@@ -34,30 +34,97 @@
       .fixture-btn span{font-size:0}
       .fixture-btn span::after{content:'Ver partidos';font-size:13px;letter-spacing:.02em}
       @keyframes fixture-slow-pulse{0%,100%{filter:brightness(1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.04),0 0 0 0 rgba(245,178,65,0)}50%{filter:brightness(1.18);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 0 16px 4px rgba(245,178,65,.42)}}
-      @media (prefers-reduced-motion:reduce){.fixture-btn{animation:none!important}}
+
+      .world-champion-banner{
+        position:relative;
+        display:grid;
+        grid-template-columns:auto 1fr auto;
+        align-items:center;
+        gap:16px;
+        margin:14px 0 18px;
+        padding:16px 20px;
+        overflow:hidden;
+        border:1px solid rgba(255,216,107,.62);
+        border-radius:18px;
+        color:#fff;
+        background:
+          radial-gradient(circle at 92% 12%,rgba(255,216,107,.25),transparent 30%),
+          linear-gradient(125deg,#5f0711 0%,#a60e1e 45%,#00163f 100%);
+        box-shadow:0 14px 38px rgba(0,0,0,.24),inset 0 0 0 1px rgba(255,255,255,.06);
+      }
+      .world-champion-banner::after{
+        content:'';
+        position:absolute;
+        inset:-80% -20%;
+        pointer-events:none;
+        background:linear-gradient(105deg,transparent 42%,rgba(255,255,255,.13) 50%,transparent 58%);
+        animation:champion-shine 4.8s ease-in-out infinite;
+      }
+      .champion-trophy{
+        display:grid;
+        place-items:center;
+        width:54px;
+        height:54px;
+        border-radius:16px;
+        font-size:30px;
+        background:linear-gradient(145deg,#ffe59a,#d99b1d);
+        box-shadow:0 7px 20px rgba(244,178,62,.3);
+      }
+      .champion-copy{min-width:0;position:relative;z-index:1}
+      .champion-copy small{display:block;margin-bottom:3px;color:#ffe8a8;font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+      .champion-copy strong{display:block;font-size:clamp(22px,4vw,38px);line-height:1;font-weight:950;letter-spacing:.02em}
+      .champion-copy span{display:block;margin-top:7px;color:rgba(255,255,255,.86);font-size:13px;font-weight:700}
+      .champion-flag{
+        position:relative;
+        z-index:1;
+        width:68px;
+        height:46px;
+        object-fit:cover;
+        border:3px solid rgba(255,255,255,.88);
+        border-radius:9px;
+        box-shadow:0 7px 20px rgba(0,0,0,.28);
+      }
+      .bracket-match.champion-final-card{border-color:#f4b23e!important;box-shadow:0 0 0 1px rgba(244,178,62,.34),0 13px 30px rgba(0,0,0,.18)!important}
+      .bracket-match.champion-final-card footer em{color:#f4b23e!important;font-weight:900!important}
+      @keyframes champion-shine{0%,55%{transform:translateX(-45%)}82%,100%{transform:translateX(45%)}}
+      @keyframes final-tab-blink{0%,100%{opacity:1;box-shadow:inset 0 0 0 1px #f4b23e,0 0 0 rgba(244,178,62,0)}50%{opacity:.62;box-shadow:inset 0 0 0 1px #ffd86b,0 0 12px rgba(244,178,62,.7)}}
+      .bracket-tabs button.attention-blink{animation:none!important}
+      .bracket-tabs button:nth-child(5){animation:final-tab-blink 1.15s ease-in-out infinite!important}
+      @media(max-width:620px){
+        .world-champion-banner{grid-template-columns:auto 1fr;gap:12px;padding:14px}
+        .champion-trophy{width:46px;height:46px;font-size:25px}
+        .champion-flag{grid-column:1/-1;width:100%;height:6px;border:0;border-radius:999px;object-position:center}
+        .champion-copy span{font-size:12px}
+      }
+      @media (prefers-reduced-motion:reduce){.fixture-btn,.world-champion-banner::after,.bracket-tabs button:nth-child(5){animation:none!important}}
     </style>
-    <title>Partidos 2026 · Calendario del Mundial</title>
+    <title>España campeona · Mundial 2026</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       (() => {
-        const installFinalStyles = () => {
-          if (document.getElementById('final-default-style')) return
-          const style = document.createElement('style')
-          style.id = 'final-default-style'
-          style.textContent = `
-            .bracket-tabs button.attention-blink{animation:none!important}
-            .bracket-tabs button:nth-child(5){animation:final-tab-blink 1.15s ease-in-out infinite!important}
-            @keyframes final-tab-blink{0%,100%{opacity:1;box-shadow:inset 0 0 0 1px #f4b23e,0 0 0 rgba(244,178,62,0)}50%{opacity:.58;box-shadow:inset 0 0 0 1px #ffd86b,0 0 12px rgba(244,178,62,.75)}}
-            @media (prefers-reduced-motion:reduce){.bracket-tabs button:nth-child(5){animation:none!important}}
-          `
-          document.head.appendChild(style)
+        const champion = {
+          es: {
+            eyebrow: 'Campeón del mundo 2026',
+            name: 'ESPAÑA',
+            detail: 'España 1–0 Argentina · Tiempo extra · Ferran Torres 106′',
+            status: 'Finalizado',
+            footer: 'España campeón del mundo 2026',
+          },
+          en: {
+            eyebrow: '2026 world champion',
+            name: 'SPAIN',
+            detail: 'Spain 1–0 Argentina · Extra time · Ferran Torres 106′',
+            status: 'Final',
+            footer: 'Spain, 2026 world champion',
+          },
         }
 
+        const currentLanguage = () => document.documentElement.lang === 'en' ? 'en' : 'es'
+
         const activateFinals = () => {
-          installFinalStyles()
           const tabs = Array.from(document.querySelectorAll('.bracket-tabs button'))
           const finalTab = tabs.find(button => button.textContent?.trim() === 'Final')
           if (!finalTab) return false
@@ -69,20 +136,84 @@
           return true
         }
 
+        const decorateFinal = () => {
+          const section = document.querySelector('.knockout-section')
+          if (!section) return false
+
+          const language = currentLanguage()
+          const text = champion[language]
+          let banner = section.querySelector('.world-champion-banner')
+          if (!banner) {
+            banner = document.createElement('section')
+            banner.className = 'world-champion-banner'
+            banner.setAttribute('aria-label', text.eyebrow)
+            const summary = section.querySelector('.bracket-summary')
+            section.insertBefore(banner, summary || section.firstChild)
+          }
+          banner.innerHTML = `
+            <span class="champion-trophy" aria-hidden="true">🏆</span>
+            <span class="champion-copy">
+              <small>${text.eyebrow}</small>
+              <strong>${text.name}</strong>
+              <span>${text.detail}</span>
+            </span>
+            <img class="champion-flag" src="https://flagcdn.com/w160/es.png" alt="${text.name}" />
+          `
+
+          const cards = Array.from(section.querySelectorAll('.bracket-match'))
+          const finalCard = cards.find(card => card.querySelector('header span')?.textContent?.trim() === 'Partido 104')
+          if (!finalCard) return true
+
+          finalCard.classList.remove('status-scheduled','status-live','status-pending')
+          finalCard.classList.add('status-final','champion-final-card')
+
+          const status = finalCard.querySelector('header small')
+          if (status) status.innerHTML = `<i></i>${text.status}`
+
+          const slots = finalCard.querySelectorAll('.bracket-team')
+          if (slots[0]) {
+            slots[0].classList.remove('pending')
+            slots[0].classList.add('confirmed')
+            slots[0].innerHTML = `<img class="flag" src="https://flagcdn.com/w40/es.png" alt=""><b>${language === 'es' ? 'España' : 'Spain'}</b>`
+          }
+          if (slots[1]) {
+            slots[1].classList.remove('pending')
+            slots[1].classList.add('confirmed')
+            slots[1].innerHTML = `<img class="flag" src="https://flagcdn.com/w40/ar.png" alt=""><b>Argentina</b>`
+          }
+
+          const score = finalCard.querySelector('.bracket-teams > strong')
+          if (score) score.textContent = '1-0'
+          const footer = finalCard.querySelector('footer em')
+          if (footer) footer.textContent = text.footer
+          return true
+        }
+
+        const refreshChampionView = () => {
+          activateFinals()
+          decorateFinal()
+        }
+
         const boot = () => {
           window.history.scrollRestoration = 'manual'
-          if (activateFinals()) return
+          refreshChampionView()
           const root = document.getElementById('root') || document.body
+          let queued = false
           const observer = new MutationObserver(() => {
-            if (activateFinals()) observer.disconnect()
+            if (queued) return
+            queued = true
+            window.requestAnimationFrame(() => {
+              queued = false
+              refreshChampionView()
+            })
           })
           observer.observe(root,{ childList:true, subtree:true })
-          window.setTimeout(() => observer.disconnect(),5000)
+          window.setTimeout(() => observer.disconnect(),15000)
         }
 
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',boot,{ once:true })
         else boot()
-        window.addEventListener('pageshow',activateFinals)
+        window.addEventListener('pageshow',refreshChampionView)
       })()
     </script>
   </body>
